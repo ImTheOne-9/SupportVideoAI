@@ -1,6 +1,6 @@
 # CreatorUtils AI B-Roll Matcher (Auto Alignment Engine)
 
-> Dự án tái tạo hoàn chỉnh hệ thống **Tự động ghép B-roll vào A-roll bằng AI** theo ý tưởng và giao diện của ứng dụng **CreatorUtils** (phiên bản macOS của Duy Luân).
+> Dự án tái tạo hoàn chỉnh hệ thống **Tự động ghép B-roll vào A-roll bằng AI** theo ý tưởng và giao diện của ứng dụng **CreatorUtils**
 
 ---
 
