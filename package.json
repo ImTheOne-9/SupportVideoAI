@@ -1,0 +1,17 @@
+{
+  "name": "creatorutils-broll-matcher",
+  "version": "1.0.0",
+  "description": "AI B-Roll Matcher for Content Creators - Inspired by Duy Luan's CreatorUtils",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5173 --host",
+    "api": "python -m engine.api_server",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:js": "node --test tests/client_modules.test.mjs",
+    "test:py": "python -m unittest discover -s tests -v"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}

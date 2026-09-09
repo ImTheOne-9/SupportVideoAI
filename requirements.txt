@@ -1,0 +1,9 @@
+# Core requirements for CreatorUtils AI B-roll Matcher Engine
+numpy>=1.24.0
+google-genai>=0.1.0
+scikit-learn>=1.3.0
+# Speech-to-text thực tế cho API cục bộ:
+faster-whisper>=1.0.0
+# Optional libraries for scene detection nâng cao:
+# scenedetect>=0.6.0
+# opencv-python>=4.8.0
