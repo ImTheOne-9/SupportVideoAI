@@ -124,6 +124,79 @@ export class VideoImporter {
     });
   }
 
+  static detectScenesFromSignatures(samples, durationSec, options = {}) {
+    const threshold = Number(options.threshold ?? 0.18);
+    const minSceneSec = Number(options.minSceneSec ?? 1.5);
+    const maxScenes = Math.max(1, Number(options.maxScenes ?? 10));
+    if (!Array.isArray(samples) || !samples.length || durationSec <= 0) return [];
+    const ordered = [...samples].filter(item => Array.isArray(item.signature)).sort((a, b) => a.timeSec - b.timeSec);
+    if (!ordered.length) return [];
+    const boundaries = [0];
+    let lastBoundary = 0;
+    for (let index = 1; index < ordered.length; index++) {
+      const previous = ordered[index - 1].signature;
+      const current = ordered[index].signature;
+      const length = Math.min(previous.length, current.length);
+      if (!length) continue;
+      let difference = 0;
+      for (let valueIndex = 0; valueIndex < length; valueIndex++) difference += Math.abs(previous[valueIndex] - current[valueIndex]);
+      difference /= length;
+      const timeSec = Number(ordered[index].timeSec);
+      if (difference >= threshold && timeSec - lastBoundary >= minSceneSec) {
+        boundaries.push(timeSec);
+        lastBoundary = timeSec;
+      }
+    }
+    boundaries.push(durationSec);
+    let scenes = boundaries.slice(0, -1).map((startSec, index) => {
+      const endSec = boundaries[index + 1];
+      return { startSec, endSec, keyframeSec: startSec + (endSec - startSec) / 2 };
+    }).filter(scene => scene.endSec - scene.startSec >= 0.25);
+    if (scenes.length > maxScenes) {
+      const kept = scenes.slice(0, maxScenes);
+      kept[maxScenes - 1].endSec = durationSec;
+      kept[maxScenes - 1].keyframeSec = kept[maxScenes - 1].startSec + (durationSec - kept[maxScenes - 1].startSec) / 2;
+      scenes = kept;
+    }
+    return scenes.map((scene, index) => ({ id: `scene-${index + 1}`, ...scene }));
+  }
+
+  static async imageSignature(dataUrl, columns = 6, rows = 4) {
+    return new Promise(resolve => {
+      const image = new Image();
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = columns;
+        canvas.height = rows;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        context.drawImage(image, 0, 0, columns, rows);
+        const pixels = context.getImageData(0, 0, columns, rows).data;
+        const signature = [];
+        for (let index = 0; index < pixels.length; index += 4) {
+          signature.push((pixels[index] + pixels[index + 1] + pixels[index + 2]) / (3 * 255));
+        }
+        resolve(signature);
+      };
+      image.onerror = () => resolve([]);
+      image.src = dataUrl;
+    });
+  }
+
+  static async captureSceneKeyframes(file, durationSec, options = {}) {
+    const sampleIntervalSec = Number(options.sampleIntervalSec ?? Math.max(0.75, Math.min(3, durationSec / 20)));
+    const samples = [];
+    for (let timeSec = Math.min(0.3, durationSec / 2); timeSec < durationSec; timeSec += sampleIntervalSec) {
+      const imageDataUrl = await this.captureFrame(file, timeSec);
+      if (!imageDataUrl) continue;
+      samples.push({ timeSec, imageDataUrl, signature: await this.imageSignature(imageDataUrl) });
+    }
+    const scenes = this.detectScenesFromSignatures(samples, durationSec, options);
+    return Promise.all(scenes.map(async scene => {
+      const nearest = samples.reduce((best, sample) => !best || Math.abs(sample.timeSec - scene.keyframeSec) < Math.abs(best.timeSec - scene.keyframeSec) ? sample : best, null);
+      return { ...scene, imageDataUrl: nearest?.imageDataUrl || await this.captureFrame(file, scene.keyframeSec) };
+    }));
+  }
+
   /**
    * Giải mã file âm thanh từ video thật để lấy biên độ sóng âm (Web Audio API)
    */

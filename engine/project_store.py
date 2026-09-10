@@ -68,6 +68,30 @@ class ProjectStore:
                     value_json TEXT NOT NULL
                 )
             """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS broll_clips (
+                    id TEXT PRIMARY KEY,
+                    fingerprint TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    duration_sec REAL NOT NULL DEFAULT 0,
+                    aspect_ratio TEXT,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS broll_scenes (
+                    id TEXT PRIMARY KEY,
+                    clip_id TEXT NOT NULL,
+                    start_sec REAL NOT NULL,
+                    end_sec REAL NOT NULL,
+                    keyframe_sec REAL NOT NULL,
+                    description TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    embedding_json TEXT NOT NULL,
+                    FOREIGN KEY(clip_id) REFERENCES broll_clips(id) ON DELETE CASCADE
+                )
+            """)
+            connection.execute("CREATE INDEX IF NOT EXISTS idx_broll_scenes_clip ON broll_scenes(clip_id)")
 
     def get_settings(self) -> dict[str, Any]:
         with self._session() as connection:
@@ -88,6 +112,59 @@ class ProjectStore:
                     ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json
                 """, (str(key), json.dumps(value, ensure_ascii=False)))
         return self.get_settings()
+
+    def get_broll_index(self, clip_id: Optional[str] = None) -> list[dict[str, Any]]:
+        query = """
+            SELECT c.id clip_id, c.fingerprint, c.name, c.duration_sec, c.aspect_ratio,
+                   s.id scene_id, s.start_sec, s.end_sec, s.keyframe_sec,
+                   s.description, s.metadata_json, s.embedding_json
+            FROM broll_clips c JOIN broll_scenes s ON s.clip_id = c.id
+        """
+        params: tuple[Any, ...] = ()
+        if clip_id is not None:
+            query += " WHERE c.id = ?"
+            params = (clip_id,)
+        query += " ORDER BY c.updated_at DESC, s.start_sec ASC"
+        with self._session() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [{
+            "clipId": row["clip_id"], "fingerprint": row["fingerprint"], "clipName": row["name"],
+            "durationSec": row["duration_sec"], "aspectRatio": row["aspect_ratio"],
+            "sceneId": row["scene_id"], "startSec": row["start_sec"], "endSec": row["end_sec"],
+            "keyframeSec": row["keyframe_sec"], "description": row["description"],
+            **json.loads(row["metadata_json"]), "embedding": json.loads(row["embedding_json"]),
+        } for row in rows]
+
+    def save_broll_index(self, clip: dict[str, Any], scenes: list[dict[str, Any]]) -> dict[str, Any]:
+        clip_id = str(clip["clipId"])
+        fingerprint = str(clip["fingerprint"])
+        existing = self.get_broll_index(clip_id)
+        if existing and existing[0]["fingerprint"] == fingerprint:
+            return {"cached": True, "scenes": existing}
+        now = datetime.now(timezone.utc).isoformat()
+        with self._session() as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("DELETE FROM broll_clips WHERE id = ?", (clip_id,))
+            connection.execute("""
+                INSERT INTO broll_clips (id, fingerprint, name, duration_sec, aspect_ratio, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (clip_id, fingerprint, str(clip.get("clipName", clip_id)), float(clip.get("durationSec", 0)), str(clip.get("aspectRatio", "")), now))
+            for index, scene in enumerate(scenes, start=1):
+                scene_id = str(scene.get("sceneId") or f"{clip_id}:scene-{index}")
+                metadata = {key: value for key, value in scene.items() if key not in {"sceneId", "startSec", "endSec", "keyframeSec", "description", "embedding"}}
+                connection.execute("""
+                    INSERT INTO broll_scenes (id, clip_id, start_sec, end_sec, keyframe_sec, description, metadata_json, embedding_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (scene_id, clip_id, float(scene.get("startSec", 0)), float(scene.get("endSec", 0)),
+                      float(scene.get("keyframeSec", 0)), str(scene.get("description", "")),
+                      json.dumps(metadata, ensure_ascii=False), json.dumps(scene.get("embedding") or [])))
+        return {"cached": False, "scenes": self.get_broll_index(clip_id)}
+
+    def delete_broll_index(self, clip_id: str) -> bool:
+        with self._session() as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            cursor = connection.execute("DELETE FROM broll_clips WHERE id = ?", (clip_id,))
+        return cursor.rowcount > 0
 
     def save(self, payload: dict[str, Any]) -> dict[str, Any]:
         project_id = str(payload.get("id") or uuid.uuid4())

@@ -129,6 +129,24 @@ export class ApiClient {
     });
   }
 
+  indexBrollScenes(payload) {
+    return this.request('/api/index-broll-scenes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }, 30 * 60 * 1000);
+  }
+
+  matchBroll(payload) {
+    return this.request('/api/match-broll', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }, 10 * 60 * 1000);
+  }
+
+  searchBroll(query, clipIds = [], limit = 30) {
+    return this.request('/api/search-broll', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query, clipIds, limit })
+    });
+  }
+
   segment(transcripts, guidance = '') {
     return this.request('/api/segment', {
       method: 'POST',

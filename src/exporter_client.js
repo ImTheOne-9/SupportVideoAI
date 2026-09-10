@@ -1,3 +1,5 @@
+import { EditDecisionList } from './edit_decision.js';
+
 /** Xuất timeline sang FCPXML và Premiere/Resolve XML. */
 export class ClientTimelineExporter {
   constructor(projectName = 'CreatorUtils Project', fps = 30, width = 3840, height = 2160) {
@@ -26,17 +28,20 @@ export class ClientTimelineExporter {
     return placement.clipName || placement.name || `${placement.clipId}.mov`;
   }
 
-  generateFCPXML(placements, arollName = 'A-Roll.mov', totalDurationSec = 0) {
-    const totalFrames = this.secToFrames(totalDurationSec);
+  generateFCPXML(placements, arollName = 'A-Roll.mov', totalDurationSec = 0, cuts = []) {
+    const keptSegments = EditDecisionList.keptSegments(cuts, totalDurationSec);
+    const timelineDurationSec = keptSegments.at(-1)?.timelineEndSec || 0;
+    const remappedPlacements = EditDecisionList.remapPlacements(placements, keptSegments);
+    const totalFrames = this.secToFrames(timelineDurationSec);
     const frameDur = `1/${this.fps}s`;
     const uniqueAssets = new Map();
-    placements.forEach(p => {
+    remappedPlacements.forEach(p => {
       if (!uniqueAssets.has(p.clipId)) uniqueAssets.set(p.clipId, p);
     });
 
     let assetTags = `
     <format id="r1" name="FFVideoFormat${this.height}p${this.fps}" frameDuration="${frameDur}" width="${this.width}" height="${this.height}"/>
-    <asset id="r_aroll" name="${this.escapeXml(arollName)}" src="${this.escapeXml(this.fileUrl(arollName))}" duration="${totalFrames}/${this.fps}s" hasVideo="1" hasAudio="1"/>`;
+    <asset id="r_aroll" name="${this.escapeXml(arollName)}" src="${this.escapeXml(this.fileUrl(arollName))}" duration="${this.secToFrames(totalDurationSec)}/${this.fps}s" hasVideo="1" hasAudio="1"/>`;
     for (const [clipId, placement] of uniqueAssets) {
       const name = this.clipName(placement);
       const sourceDuration = placement.sourceDurationSec || placement.durationSec;
@@ -44,10 +49,12 @@ export class ClientTimelineExporter {
     <asset id="r_broll_${this.escapeXml(clipId)}" name="${this.escapeXml(name)}" src="${this.escapeXml(this.fileUrl(name))}" duration="${this.secToFrames(sourceDuration)}/${this.fps}s" hasVideo="1"/>`;
     }
 
-    const clips = placements.map(p => {
-      const name = this.clipName(p);
-      return `
-            <asset-clip ref="r_broll_${this.escapeXml(p.clipId)}" lane="1" name="${this.escapeXml(name)}" offset="${this.secToFrames(p.startSec)}/${this.fps}s" duration="${this.secToFrames(p.durationSec)}/${this.fps}s"/>`;
+    const arollClips = keptSegments.map((segment, segmentIndex) => {
+      const connected = remappedPlacements.filter(p => p.startSec >= segment.timelineStartSec && p.startSec < segment.timelineEndSec).map(p => {
+        const name = this.clipName(p);
+        return `<asset-clip ref="r_broll_${this.escapeXml(p.clipId)}" lane="1" name="${this.escapeXml(name)}" offset="${this.secToFrames(p.startSec)}/${this.fps}s" start="${this.secToFrames(p.sourceInSec || 0)}/${this.fps}s" duration="${this.secToFrames(p.durationSec)}/${this.fps}s"/>`;
+      }).join('');
+      return `<asset-clip ref="r_aroll" offset="${this.secToFrames(segment.timelineStartSec)}/${this.fps}s" start="${this.secToFrames(segment.sourceStartSec)}/${this.fps}s" name="${this.escapeXml(arollName)} ${segmentIndex + 1}" duration="${this.secToFrames(segment.durationSec)}/${this.fps}s" tcFormat="NDF">${connected}</asset-clip>`;
     }).join('');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
@@ -60,8 +67,7 @@ export class ClientTimelineExporter {
       <project name="${this.escapeXml(this.projectName)}">
         <sequence format="r1" duration="${totalFrames}/${this.fps}s" tcStart="0s" tcFormat="NDF">
           <spine>
-            <asset-clip ref="r_aroll" offset="0s" name="${this.escapeXml(arollName)}" duration="${totalFrames}/${this.fps}s" tcFormat="NDF">${clips}
-            </asset-clip>
+            ${arollClips}
           </spine>
         </sequence>
       </project>
@@ -70,19 +76,22 @@ export class ClientTimelineExporter {
 </fcpxml>`;
   }
 
-  generatePremiereXML(placements, arollName = 'A-Roll.mov', totalDurationSec = 0) {
-    const totalFrames = this.secToFrames(totalDurationSec);
-    const brollTrack = placements.map((p, index) => {
+  generatePremiereXML(placements, arollName = 'A-Roll.mov', totalDurationSec = 0, cuts = []) {
+    const keptSegments = EditDecisionList.keptSegments(cuts, totalDurationSec);
+    const remappedPlacements = EditDecisionList.remapPlacements(placements, keptSegments);
+    const totalFrames = this.secToFrames(keptSegments.at(-1)?.timelineEndSec || 0);
+    const brollTrack = remappedPlacements.map((p, index) => {
       const start = this.secToFrames(p.startSec);
       const end = this.secToFrames(p.endSec);
       const duration = end - start;
       const name = this.clipName(p);
       return `
         <clipitem id="clipitem-broll-${index + 1}">
-          <name>${this.escapeXml(name)}</name><start>${start}</start><end>${end}</end><in>0</in><out>${duration}</out>
+          <name>${this.escapeXml(name)}</name><start>${start}</start><end>${end}</end><in>${this.secToFrames(p.sourceInSec || 0)}</in><out>${this.secToFrames(p.sourceOutSec ?? ((p.sourceInSec || 0) + p.durationSec))}</out>
           <file id="file-broll-${index + 1}"><name>${this.escapeXml(name)}</name><pathurl>${this.escapeXml(this.fileUrl(name))}</pathurl><rate><timebase>${this.fps}</timebase><ntsc>FALSE</ntsc></rate><duration>${this.secToFrames(p.sourceDurationSec || p.durationSec)}</duration></file>
         </clipitem>`;
     }).join('');
+    const arollTrack = keptSegments.map((segment, index) => `<clipitem id="clipitem-aroll-${index + 1}"><name>${this.escapeXml(arollName)}</name><start>${this.secToFrames(segment.timelineStartSec)}</start><end>${this.secToFrames(segment.timelineEndSec)}</end><in>${this.secToFrames(segment.sourceStartSec)}</in><out>${this.secToFrames(segment.sourceEndSec)}</out><file id="file-aroll"><name>${this.escapeXml(arollName)}</name><pathurl>${this.escapeXml(this.fileUrl(arollName))}</pathurl></file></clipitem>`).join('');
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE xmeml>
@@ -90,7 +99,7 @@ export class ClientTimelineExporter {
   <name>${this.escapeXml(this.projectName)}</name><duration>${totalFrames}</duration>
   <rate><timebase>${this.fps}</timebase><ntsc>FALSE</ntsc></rate>
   <media><video><format><samplecharacteristics><width>${this.width}</width><height>${this.height}</height><pixelaspectratio>square</pixelaspectratio><rate><timebase>${this.fps}</timebase></rate></samplecharacteristics></format>
-    <track><clipitem id="clipitem-aroll-1"><name>${this.escapeXml(arollName)}</name><start>0</start><end>${totalFrames}</end><in>0</in><out>${totalFrames}</out><file id="file-aroll"><name>${this.escapeXml(arollName)}</name><pathurl>${this.escapeXml(this.fileUrl(arollName))}</pathurl></file></clipitem></track>
+    <track>${arollTrack}</track>
     <track>${brollTrack}
     </track>
   </video></media>

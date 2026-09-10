@@ -40,23 +40,23 @@
     <nav class="workflow-pills" aria-label="Quy trình dựng">
       <div class="pill-step active" id="step-transcript" title="Bản ghi lời nói">
         <span class="step-indicator"></span>
-        <span>Bản ghi lời</span>
+        <span data-i18n="transcript">Bản ghi lời</span>
       </div>
       <div class="pill-step" id="step-cut" title="Cắt thô video">
         <span class="step-indicator"></span>
-        <span>Cắt</span>
+        <span data-i18n="cut">Cắt</span>
       </div>
       <div class="pill-step" id="step-segment" title="Phân đoạn nội dung">
         <span class="step-indicator"></span>
-        <span>Phân đoạn</span>
+        <span data-i18n="segment">Phân đoạn</span>
       </div>
       <div class="pill-step" id="step-broll" title="Xử lý khớp B-roll">
         <span class="step-indicator"></span>
-        <span>B-Roll</span>
+        <span data-i18n="broll">B-Roll</span>
       </div>
       <div class="pill-step" id="step-export" title="Xuất file Final Cut Pro / Premiere">
         <span class="step-indicator"></span>
-        <span>Xuất</span>
+        <span data-i18n="export">Xuất</span>
       </div>
     </nav>
 
@@ -92,70 +92,70 @@
       <div class="nav-section">
         <div class="nav-item" id="nav-smart-edit">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>
-          <span>Dựng thông minh</span>
+          <span data-i18n="smartEdit">Dựng thông minh</span>
         </div>
       </div>
 
       <div class="nav-section">
-        <div class="nav-section-title">Chép lời</div>
+        <div class="nav-section-title" data-i18n="transcription">Chép lời</div>
         <div class="nav-item" id="nav-transcript">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-          <span>Chép lời</span>
+          <span data-i18n="transcribe">Chép lời</span>
         </div>
         <div class="nav-item" id="nav-transcript-view">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
-          <span>Xem lại bản ghi lời</span>
+          <span data-i18n="reviewTranscript">Xem lại bản ghi lời</span>
         </div>
       </div>
 
       <div class="nav-section">
-        <div class="nav-section-title">Công cụ AI</div>
+        <div class="nav-section-title" data-i18n="aiTools">Công cụ AI</div>
         <div class="nav-item" id="nav-chapters">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-          <span>Tự động tạo chương</span>
+          <span data-i18n="chapters">Tự động tạo chương</span>
         </div>
         <div class="nav-item" id="nav-summary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
-          <span>Tự động tóm tắt</span>
+          <span data-i18n="summary">Tự động tóm tắt</span>
         </div>
         <div class="nav-item" id="nav-ad-check">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>Kiểm tra quảng cáo</span>
+          <span data-i18n="adCheck">Kiểm tra quảng cáo</span>
         </div>
         <div class="nav-item" id="nav-metadata">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          <span>Tự động tạo metadata</span>
+          <span data-i18n="metadata">Tự động tạo metadata</span>
         </div>
         <div class="nav-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
-          <span>Dịch</span>
+          <span data-i18n="translate">Dịch</span>
         </div>
       </div>
 
       <div class="nav-section">
-        <div class="nav-section-title">Công cụ media</div>
+        <div class="nav-section-title" data-i18n="mediaTools">Công cụ media</div>
         <div class="nav-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-          <span>Trích xuất ảnh thu nhỏ</span>
+          <span data-i18n="thumbnails">Trích xuất ảnh thu nhỏ</span>
         </div>
         <div class="nav-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-          <span>Trích xuất âm thanh</span>
+          <span data-i18n="audio">Trích xuất âm thanh</span>
         </div>
         <div class="nav-item" id="nav-auto-cut">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
-          <span>Tự động cắt</span>
+          <span data-i18n="autoCut">Tự động cắt</span>
         </div>
         <div class="nav-item" id="nav-export-menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Xuất thành phẩm</span>
+          <span data-i18n="finishedExport">Xuất thành phẩm</span>
         </div>
       </div>
 
       <div class="nav-footer">
         <div class="nav-item" id="nav-settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-          <span>Cài đặt</span>
+          <span data-i18n="settings">Cài đặt</span>
         </div>
       </div>
     </aside>
@@ -1044,16 +1044,16 @@
         <div class="settings-shell">
           <div class="settings-page-header">
             <div>
-              <h2>Cài đặt</h2>
-              <p>Quản lý chép lời, mô hình cục bộ và dịch vụ AI.</p>
+              <h2 data-i18n="settings">Cài đặt</h2>
+              <p data-i18n="settingsSubtitle">Quản lý chép lời, mô hình cục bộ và dịch vụ AI.</p>
             </div>
             <span class="settings-save-state" id="settings-save-state">Đã đồng bộ</span>
           </div>
 
           <div class="settings-tabs" role="tablist">
-            <button class="active" data-settings-tab="general">Chung</button>
-            <button data-settings-tab="models">Mô hình chép lời</button>
-            <button data-settings-tab="services">Dịch vụ AI</button>
+            <button class="active" data-settings-tab="general" data-i18n="general">Chung</button>
+            <button data-settings-tab="models" data-i18n="models">Mô hình chép lời</button>
+            <button data-settings-tab="services" data-i18n="services">Dịch vụ AI</button>
           </div>
 
           <div class="settings-scroll">

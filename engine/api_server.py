@@ -22,10 +22,11 @@ from urllib.parse import unquote, urlparse
 
 from engine.gemini_indexer import GeminiBrollIndexer
 from engine.project_store import ProjectStore, default_data_dir
+from engine.semantic_matcher import create_placements, local_embedding, scene_text, search_scenes
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
-    import cgi
+        import cgi
 
 
 HOST = os.environ.get("CREATORUTILS_API_HOST", "127.0.0.1")
@@ -96,6 +97,22 @@ def _generate_gemini(client: Any, model: str, prompt: str) -> Any:
     from google.genai import types
     config = types.GenerateContentConfig(max_output_tokens=int(_app_settings()["maxOutputTokens"]))
     return client.models.generate_content(model=model, contents=prompt, config=config)
+
+
+def _embed_texts(texts: list[str]) -> tuple[list[list[float]], str]:
+    if not texts:
+        return [], "local-hash-v1"
+    if _runtime_gemini_key:
+        try:
+            from google import genai
+            from google.genai import types
+            model = os.environ.get("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
+            config = types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY", output_dimensionality=768)
+            response = genai.Client(api_key=_runtime_gemini_key).models.embed_content(model=model, contents=texts, config=config)
+            return [[float(value) for value in item.values] for item in response.embeddings], model
+        except Exception as exc:
+            print(f"[CreatorUtils] Gemini embedding fallback: {exc}")
+    return [local_embedding(text) for text in texts], "local-hash-v1"
 
 
 def _prepare_whisper_audio(source_path: str) -> str:
@@ -175,10 +192,11 @@ class ApiHandler(BaseHTTPRequestHandler):
                 whisper_ready = False
             self._json(200, {
                 "ok": True,
-                "apiVersion": 6,
+                "apiVersion": 7,
                 "geminiConfigured": bool(_runtime_gemini_key),
                 "whisperReady": whisper_ready,
                 "storagePath": str(default_data_dir() / "creatorutils.db"),
+                "features": ["scene-index", "semantic-broll", "semantic-search", "edl-export"],
             })
             return
         if path == "/api/settings":
@@ -186,6 +204,9 @@ class ApiHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/models/whisper":
             self._json(200, {"models": self._whisper_models()})
+            return
+        if path == "/api/broll-index":
+            self._json(200, {"scenes": _get_project_store().get_broll_index()})
             return
         if path == "/api/projects":
             self._json(200, {"projects": _get_project_store().list()})
@@ -210,6 +231,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._download_whisper_model()
             elif self.path == "/api/index-broll":
                 self._index_broll()
+            elif self.path == "/api/index-broll-scenes":
+                self._index_broll_scenes()
+            elif self.path == "/api/match-broll":
+                self._match_broll()
+            elif self.path == "/api/search-broll":
+                self._search_broll()
             elif self.path == "/api/transcribe":
                 self._transcribe()
             elif self.path == "/api/transcribe-stream":
@@ -244,6 +271,11 @@ class ApiHandler(BaseHTTPRequestHandler):
             if path.startswith("/api/models/whisper/"):
                 model_id = unquote(path.rsplit("/", 1)[-1])
                 self._delete_whisper_model(model_id)
+                return
+            if path.startswith("/api/broll-index/"):
+                clip_id = unquote(path.rsplit("/", 1)[-1])
+                deleted = _get_project_store().delete_broll_index(clip_id)
+                self._json(200 if deleted else 404, {"ok": deleted})
                 return
             self._json(404, {"error": "Không tìm thấy endpoint."})
         except Exception as exc:
@@ -342,7 +374,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             raise ValueError("Không có keyframe hợp lệ để Gemini phân tích.")
         encoded = image_data.split(",", 1)[1]
         image_bytes = base64.b64decode(encoded, validate=True)
-        indexer = GeminiBrollIndexer(_runtime_gemini_key)
+        indexer = GeminiBrollIndexer(_runtime_gemini_key, str(_app_settings()["geminiModel"]))
         result = indexer.index_image_bytes(
             image_bytes,
             str(data.get("clipId", "BROLL")),
@@ -351,6 +383,97 @@ class ApiHandler(BaseHTTPRequestHandler):
             str(data.get("guidance", "")),
         )
         self._json(200, result)
+
+    def _index_broll_scenes(self) -> None:
+        if not _runtime_gemini_key:
+            raise ValueError("Chưa cấu hình Gemini API key trong AI engine.")
+        data = self._read_json()
+        clip_id = str(data.get("clipId", "")).strip()
+        fingerprint = str(data.get("fingerprint", "")).strip()
+        raw_scenes = data.get("scenes") or []
+        if not clip_id or not fingerprint:
+            raise ValueError("Thiếu clipId hoặc fingerprint của B-Roll.")
+        if not raw_scenes or len(raw_scenes) > 12:
+            raise ValueError("Mỗi B-Roll phải có từ 1 đến 12 keyframe.")
+        store = _get_project_store()
+        cached = store.get_broll_index(clip_id)
+        if cached and cached[0]["fingerprint"] == fingerprint:
+            self._json(200, {"cached": True, "scenes": cached})
+            return
+        indexer = GeminiBrollIndexer(_runtime_gemini_key, str(_app_settings()["geminiModel"]))
+        analyzed = []
+        for index, scene in enumerate(raw_scenes, start=1):
+            image_data = str(scene.get("imageDataUrl", ""))
+            if "," not in image_data:
+                raise ValueError(f"Keyframe {index} không hợp lệ.")
+            image_bytes = base64.b64decode(image_data.split(",", 1)[1], validate=True)
+            result = indexer.index_image_bytes(
+                image_bytes, clip_id, str(data.get("clipName", clip_id)),
+                float(scene.get("endSec", 0)) - float(scene.get("startSec", 0)), str(data.get("guidance", "")),
+            )
+            analyzed.append({
+                "sceneId": f"{clip_id}:scene-{index}", "startSec": float(scene.get("startSec", 0)),
+                "endSec": float(scene.get("endSec", 0)), "keyframeSec": float(scene.get("keyframeSec", 0)),
+                "description": str(result.get("description", "")), "cameraAngle": result.get("camera_angle", ""),
+                "subjects": result.get("subjects") or [], "techFeatures": result.get("tech_features") or [],
+                "tags": result.get("tags") or [], "localEmbedding": local_embedding(scene_text(result)),
+            })
+        embeddings, embedding_model = _embed_texts([scene_text(scene) for scene in analyzed])
+        for scene, embedding in zip(analyzed, embeddings):
+            scene["embedding"] = embedding
+            scene["embeddingModel"] = embedding_model
+        saved = store.save_broll_index({
+            "clipId": clip_id, "clipName": str(data.get("clipName", clip_id)), "fingerprint": fingerprint,
+            "durationSec": float(data.get("durationSec", 0)), "aspectRatio": str(data.get("aspectRatio", "")),
+        }, analyzed)
+        self._json(200, saved)
+
+    def _match_broll(self) -> None:
+        data = self._read_json()
+        transcripts = data.get("transcripts") or []
+        if not transcripts:
+            raise ValueError("Chưa có transcript để ghép B-Roll.")
+        scenes = _get_project_store().get_broll_index()
+        clip_ids = {str(value) for value in (data.get("clipIds") or [])}
+        if clip_ids:
+            scenes = [scene for scene in scenes if str(scene.get("clipId")) in clip_ids]
+        if not scenes:
+            raise ValueError("Chưa có scene B-Roll đã index.")
+        guidance = str(data.get("guidance", "")).strip()
+        texts = [" ".join(part for part in (str(item.get("text", "")), guidance) if part) for item in transcripts]
+        query_embeddings, query_model = _embed_texts(texts)
+        scene_models = {str(scene.get("embeddingModel", "local-hash-v1")) for scene in scenes}
+        if len(scene_models) != 1 or query_model not in scene_models:
+            query_embeddings = [local_embedding(text) for text in texts]
+            scenes = [{**scene, "embedding": scene.get("localEmbedding") or local_embedding(scene_text(scene))} for scene in scenes]
+            query_model = "local-hash-v1"
+        placements = create_placements(
+            transcripts, scenes, query_embeddings,
+            total_duration_sec=float(data.get("totalDurationSec", 0)),
+            min_duration=float(data.get("minDuration", 3)), max_duration=float(data.get("maxDuration", 10)),
+            coverage_ratio=float(data.get("coverageRatio", .7)), intro_hold_sec=float(data.get("introHoldSec", 3)),
+            only_16_9=bool(data.get("only16_9", True)),
+        )
+        self._json(200, {"placements": placements, "embeddingModel": query_model, "sceneCount": len(scenes)})
+
+    def _search_broll(self) -> None:
+        data = self._read_json()
+        query = str(data.get("query", "")).strip()
+        if not query:
+            self._json(200, {"results": []})
+            return
+        scenes = _get_project_store().get_broll_index()
+        clip_ids = {str(value) for value in (data.get("clipIds") or [])}
+        if clip_ids:
+            scenes = [scene for scene in scenes if str(scene.get("clipId")) in clip_ids]
+        embeddings, model = _embed_texts([query])
+        scene_models = {str(scene.get("embeddingModel", "local-hash-v1")) for scene in scenes}
+        query_embedding = embeddings[0] if embeddings else []
+        if len(scene_models) != 1 or model not in scene_models:
+            query_embedding = local_embedding(query)
+            scenes = [{**scene, "embedding": scene.get("localEmbedding") or local_embedding(scene_text(scene))} for scene in scenes]
+            model = "local-hash-v1"
+        self._json(200, {"results": search_scenes(query, scenes, query_embedding, int(data.get("limit", 30))), "embeddingModel": model})
 
     def _multipart_to_temp(self) -> tuple[str, str, str]:
         content_type = self.headers.get("Content-Type", "")
@@ -725,7 +848,7 @@ class ApiHandler(BaseHTTPRequestHandler):
 
 def main() -> None:
     server = ThreadingHTTPServer((HOST, PORT), ApiHandler)
-    print(f"CreatorUtils AI engine đang chạy tại http://{HOST}:{PORT}")
+    print(f"CreatorUtils AI engine đang chạy tại http://{HOST}:{PORT}", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

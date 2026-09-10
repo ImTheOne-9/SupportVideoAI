@@ -1,3 +1,6 @@
+import { ClientTimelineExporter } from "./exporter_client.js";
+import { applyLanguage } from "./i18n.js";
+
 (function() {
   const t = document.createElement("link").relList;
   if (t && t.supports && t.supports("modulepreload")) return;
@@ -107,7 +110,7 @@ class F {
     const d = t.map((a) => {
       const c = this.clipName(a);
       return `
-            <asset-clip ref="r_broll_${this.escapeXml(a.clipId)}" lane="1" name="${this.escapeXml(c)}" offset="${this.secToFrames(a.startSec)}/${this.fps}s" duration="${this.secToFrames(a.durationSec)}/${this.fps}s"/>`;
+            <asset-clip ref="r_broll_${this.escapeXml(a.clipId)}" lane="1" name="${this.escapeXml(c)}" offset="${this.secToFrames(a.startSec)}/${this.fps}s" start="${this.secToFrames(a.sourceInSec || 0)}/${this.fps}s" duration="${this.secToFrames(a.durationSec)}/${this.fps}s"/>`;
     }).join("");
     return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE fcpxml>
@@ -133,7 +136,7 @@ class F {
       const d = this.secToFrames(r.startSec), a = this.secToFrames(r.endSec), c = a - d, h = this.clipName(r);
       return `
         <clipitem id="clipitem-broll-${o + 1}">
-          <name>${this.escapeXml(h)}</name><start>${d}</start><end>${a}</end><in>0</in><out>${c}</out>
+          <name>${this.escapeXml(h)}</name><start>${d}</start><end>${a}</end><in>${this.secToFrames(r.sourceInSec || 0)}</in><out>${this.secToFrames(r.sourceOutSec ?? ((r.sourceInSec || 0) + r.durationSec))}</out>
           <file id="file-broll-${o + 1}"><name>${this.escapeXml(h)}</name><pathurl>${this.escapeXml(this.fileUrl(h))}</pathurl><rate><timebase>${this.fps}</timebase><ntsc>FALSE</ntsc></rate><duration>${this.secToFrames(r.sourceDurationSec || r.durationSec)}</duration></file>
         </clipitem>`;
     }).join("");
@@ -154,6 +157,7 @@ class F {
     r.href = s, r.download = t, document.body.appendChild(r), r.click(), r.remove(), URL.revokeObjectURL(s);
   }
 }
+F = ClientTimelineExporter;
 class $ {
   static async loadVideoMetadata(t) {
     return new Promise((e, i) => {
@@ -201,6 +205,36 @@ class $ {
         }
       }, n.onerror = () => o(null), n.src = s;
     });
+  }
+  static detectScenesFromSignatures(t, e, i = {}) {
+    const n = Number(i.threshold ?? 0.18), s = Number(i.minSceneSec ?? 1.5), r = Math.max(1, Number(i.maxScenes ?? 10));
+    if (!Array.isArray(t) || !t.length || e <= 0) return [];
+    const o = [...t].filter((f) => Array.isArray(f.signature)).sort((f, x) => f.timeSec - x.timeSec);
+    if (!o.length) return [];
+    const d = [0];
+    let a = 0;
+    for (let f = 1; f < o.length; f++) {
+      const x = o[f - 1].signature, P = o[f].signature, v = Math.min(x.length, P.length);
+      if (!v) continue;
+      let T = 0;
+      for (let p = 0; p < v; p++) T += Math.abs(x[p] - P[p]);
+      T /= v;
+      const b = Number(o[f].timeSec);
+      T >= n && b - a >= s && (d.push(b), a = b);
+    }
+    d.push(e);
+    let c = d.slice(0, -1).map((f, x) => { const P = d[x + 1]; return { startSec: f, endSec: P, keyframeSec: f + (P - f) / 2 }; }).filter((f) => f.endSec - f.startSec >= 0.25);
+    if (c.length > r) { const f = c.slice(0, r); f[r - 1].endSec = e, f[r - 1].keyframeSec = f[r - 1].startSec + (e - f[r - 1].startSec) / 2, c = f; }
+    return c.map((f, x) => ({ id: `scene-${x + 1}`, ...f }));
+  }
+  static async imageSignature(t, e = 6, i = 4) {
+    return new Promise((n) => { const s = new Image(); s.onload = () => { const r = document.createElement("canvas"); r.width = e, r.height = i; const o = r.getContext("2d", { willReadFrequently: true }); o.drawImage(s, 0, 0, e, i); const d = o.getImageData(0, 0, e, i).data, a = []; for (let c = 0; c < d.length; c += 4) a.push((d[c] + d[c + 1] + d[c + 2]) / 765); n(a); }, s.onerror = () => n([]), s.src = t; });
+  }
+  static async captureSceneKeyframes(t, e, i = {}) {
+    const n = Number(i.sampleIntervalSec ?? Math.max(0.75, Math.min(3, e / 20))), s = [];
+    for (let d = Math.min(0.3, e / 2); d < e; d += n) { const a = await this.captureFrame(t, d); a && s.push({ timeSec: d, imageDataUrl: a, signature: await this.imageSignature(a) }); }
+    const r = this.detectScenesFromSignatures(s, e, i);
+    return Promise.all(r.map(async (d) => { const a = s.reduce((c, h) => !c || Math.abs(h.timeSec - d.keyframeSec) < Math.abs(c.timeSec - d.keyframeSec) ? h : c, null); return { ...d, imageDataUrl: a?.imageDataUrl || await this.captureFrame(t, d.keyframeSec) }; }));
   }
   static async extractAudioWaveform(t, e = 400) {
     try {
@@ -328,6 +362,15 @@ class Kt {
   indexBroll({ imageDataUrl: t, clipId: e, filename: i, durationSec: n, guidance: s }) {
     return this.request("/api/index-broll", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageDataUrl: t, clipId: e, filename: i, durationSec: n, guidance: s }) });
   }
+  indexBrollScenes(t) {
+    return this.request("/api/index-broll-scenes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }, 18e5);
+  }
+  matchBroll(t) {
+    return this.request("/api/match-broll", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }, 6e5);
+  }
+  searchBroll(t, e = [], i = 30) {
+    return this.request("/api/search-broll", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: t, clipIds: e, limit: i }) });
+  }
   segment(t, e = "") {
     return this.request("/api/segment", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transcripts: t, guidance: e }) });
   }
@@ -364,7 +407,7 @@ class Jt {
   whisperModels = [];
   constructor() {
     var t;
-    this.isDemoMode = false, this.brollLibrary = [], this.matchedPositions = [], this.currentProjectName = "D\u1EF1 \xE1n m\u1EDBi", this.totalDurationSec = 0, this.currentTimeSec = 0, this.isPlaying = false, this.playbackInterval = null, this.pixelsPerSec = 2.4, this.waveformPeaks = null, this.activeArollFile = null, this.currentPlayingBrollId = null, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.savedProjectId = null, this.summaryOptions = { type: "brief", language: "auto", tone: "professional", customTone: "" }, this.summaryResult = "", this.summaryModel = "", this.api = new Kt(), this.currentView = "transcript", this.cutReviewed = false, this.transcripts = [], this.silenceCuts = [], this.chapters = [], this.silenceThreshold = 0.6, this.silencePadding = 0.15, this.detectFillers = true, this.matcher = new zt({ minDuration: 3, maxDuration: 12, segmentLength: 16, coverageRatio: 0.7, introHoldSec: 3, only16_9: true, placementGuidance: ((t = document.getElementById("txt-placement-guidance")) == null ? void 0 : t.value) || "" }), this.exporter = new F(this.currentProjectName, 30), this.initElements(), this.bindEvents(), this.renderAll(), this.switchView("transcript", { force: true }), this.loadSettingsPage();
+    this.isDemoMode = false, this.brollLibrary = [], this.matchedPositions = [], this.currentProjectName = "D\u1EF1 \xE1n m\u1EDBi", this.totalDurationSec = 0, this.currentTimeSec = 0, this.isPlaying = false, this.playbackInterval = null, this.pixelsPerSec = 2.4, this.waveformPeaks = null, this.activeArollFile = null, this.currentPlayingBrollId = null, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.savedProjectId = null, this.summaryOptions = { type: "brief", language: "auto", tone: "professional", customTone: "" }, this.summaryResult = "", this.summaryModel = "", this.api = new Kt(), this.currentView = "transcript", this.cutReviewed = false, this.transcripts = [], this.silenceCuts = [], this.chapters = [], this.silenceThreshold = 0.6, this.silencePadding = 0.15, this.detectFillers = true, this.matcher = new zt({ minDuration: 3, maxDuration: 12, segmentLength: 16, coverageRatio: 0.7, introHoldSec: 3, only16_9: true, placementGuidance: ((t = document.getElementById("txt-placement-guidance")) == null ? void 0 : t.value) || "" }), this.exporter = new ClientTimelineExporter(this.currentProjectName, 30), this.initElements(), this.bindEvents(), this.renderAll(), this.switchView("transcript", { force: true }), this.loadSettingsPage();
   }
   initElements() {
     this.btnProjectSelector = document.getElementById("btn-project-selector"), this.projectDropdownMenu = document.getElementById("project-dropdown-menu"), this.itemNewProject = document.getElementById("item-new-project"), this.itemLoadSampleReview = document.getElementById("item-load-sample-review"), this.projNameEl = document.getElementById("proj-name"), this.projSubEl = document.getElementById("proj-sub"), this.labelCurrentProject = document.getElementById("label-current-project"), this.mainVideoPlayer = document.getElementById("main-video-player"), this.transcriptVideoPlayer = document.getElementById("transcript-video-player"), this.mainPlayerImage = document.getElementById("main-player-image"), this.emptyDropzone = document.getElementById("empty-dropzone"), this.btnDropzoneUpload = document.getElementById("btn-dropzone-upload"), this.brollOverlayVideo = document.getElementById("broll-overlay-video"), this.brollOverlayImg = document.getElementById("broll-overlay-img"), this.activeBrollOverlay = document.getElementById("active-broll-overlay"), this.brollOverlayLabel = document.getElementById("broll-overlay-label"), this.cardFootThumbEmpty = document.getElementById("card-foot-thumb-empty"), this.cardFootThumb = document.getElementById("card-foot-thumb"), this.inputArollFile = document.getElementById("input-aroll-file"), this.inputBrollFiles = document.getElementById("input-broll-files"), this.btnUploadAroll = document.getElementById("btn-upload-aroll"), this.btnUploadBroll = document.getElementById("btn-upload-broll"), this.dragDropOverlay = document.getElementById("drag-drop-overlay"), this.arollListContainer = document.getElementById("aroll-list-container"), this.arollSummaryText = document.getElementById("aroll-summary-text"), this.brollGridEl = document.getElementById("broll-grid"), this.matchedListEl = document.getElementById("matched-cards-container"), this.brollCountTitleEl = document.getElementById("broll-count-title"), this.matchedCountTitleEl = document.getElementById("matched-count-title"), this.badgeDiffRatio = document.getElementById("badge-diff-ratio"), this.trackBrollRowEl = document.getElementById("track-broll-row"), this.trackArollFilmstripEl = document.getElementById("track-aroll-filmstrip"), this.trackAudioWaveformEl = document.getElementById("track-audio-waveform"), this.waveformCanvas = document.getElementById("waveform-canvas"), this.rulerCanvas = document.getElementById("ruler-canvas"), this.playheadLine = document.getElementById("playhead-line"), this.playheadHandle = document.getElementById("playhead-handle"), this.playheadTooltip = document.getElementById("playhead-tooltip"), this.tooltipPreviewImg = document.getElementById("tooltip-preview-img"), this.timecodeDisplay = document.getElementById("player-timecode"), this.btnPlayPause = document.getElementById("btn-play-pause"), this.btnFitFrame = document.getElementById("btn-fit-frame"), this.playerSpeedSelect = document.getElementById("player-speed-select"), this.timelineTracksScroll = document.getElementById("timeline-tracks-scroll"), this.timelineWrapper = document.getElementById("timeline-canvas-wrapper"), this.sliderMinDuration = document.getElementById("slider-min-duration"), this.sliderMaxDuration = document.getElementById("slider-max-duration"), this.sliderSegmentLen = document.getElementById("slider-segment-len"), this.sliderCoverage = document.getElementById("slider-coverage"), this.sliderIntroHold = document.getElementById("slider-intro-hold"), this.chkOnly169 = document.getElementById("chk-only-16-9"), this.txtPlacement = document.getElementById("txt-placement-guidance"), this.btnRematch = document.getElementById("btn-rematch"), this.btnRematchText = document.getElementById("btn-rematch-text"), this.brollSearchInput = document.getElementById("broll-search-input"), this.zoomSlider = document.getElementById("timeline-zoom-slider"), this.exportModal = document.getElementById("export-modal"), this.stepExport = document.getElementById("step-export"), this.btnHeaderExport = document.getElementById("btn-header-export"), this.btnCloseModal = document.getElementById("btn-close-modal"), this.btnModalCancel = document.getElementById("btn-modal-cancel"), this.xmlPreviewCode = document.getElementById("xml-preview-code"), this.apiKeyModal = document.getElementById("api-key-modal"), this.btnApiKey = document.getElementById("btn-api-key"), this.btnCloseApiModal = document.getElementById("btn-close-api-modal"), this.btnCancelApiKey = document.getElementById("btn-cancel-api-key"), this.btnSaveApiKey = document.getElementById("btn-save-api-key"), this.inputGeminiKey = document.getElementById("input-gemini-key"), this.processingBanner = document.getElementById("transcript-processing-banner"), this.processingStatus = document.getElementById("transcript-processing-status"), this.processingDetail = document.getElementById("transcript-processing-detail"), this.processingProgress = document.getElementById("transcript-processing-progress"), this.savedTranscriptsView = document.getElementById("view-saved-transcripts"), this.savedProjectsList = document.getElementById("saved-projects-list"), this.summaryResultContent = document.getElementById("summary-result-content"), this.summaryResultTitle = document.getElementById("summary-result-title"), this.summaryResultMeta = document.getElementById("summary-result-meta"), this.summaryStatusIcon = document.getElementById("summary-status-icon"), this.summaryCustomToneWrap = document.getElementById("summary-custom-tone-wrap"), this.summaryCustomToneInput = document.getElementById("summary-custom-tone"), this.views = { transcript: document.getElementById("view-transcript"), cut: document.getElementById("view-cut"), segment: document.getElementById("view-segment"), broll: document.getElementById("view-broll"), summary: document.getElementById("view-summary"), export: document.getElementById("view-export") }, this.pills = { transcript: document.getElementById("step-transcript"), cut: document.getElementById("step-cut"), segment: document.getElementById("step-segment"), broll: document.getElementById("step-broll"), export: document.getElementById("step-export") }, this.sidebarNav = { smartEdit: document.getElementById("nav-smart-edit"), transcript: document.getElementById("nav-transcript"), transcriptView: document.getElementById("nav-transcript-view"), chapters: document.getElementById("nav-chapters"), summary: document.getElementById("nav-summary"), autoCut: document.getElementById("nav-auto-cut"), exportMenu: document.getElementById("nav-export-menu") }, this.api.health().then((t) => {
@@ -470,13 +513,7 @@ class Jt {
       document.getElementById("val-coverage").textContent = `${l.target.value}%`;
     }), (p = this.sliderIntroHold) == null || p.addEventListener("input", (l) => {
       document.getElementById("val-intro-hold").textContent = `${l.target.value}s`;
-    }), (b = this.chkOnly169) == null || b.addEventListener("change", () => this.handleRematch()), (I = this.btnRematch) == null || I.addEventListener("click", () => this.handleRematch()), (k = this.brollSearchInput) == null || k.addEventListener("input", (l) => {
-      const y = l.target.value.toLowerCase().trim(), C = this.brollLibrary.filter((B) => {
-        var Nt;
-        return B.id.toLowerCase().includes(y) || ((Nt = B.name) == null ? void 0 : Nt.toLowerCase().includes(y)) || B.description.toLowerCase().includes(y) || B.tags && B.tags.some((Xt) => Xt.toLowerCase().includes(y));
-      });
-      this.renderBrollGrid(C);
-    }), (w = this.zoomSlider) == null || w.addEventListener("input", (l) => {
+    }), (b = this.chkOnly169) == null || b.addEventListener("change", () => this.handleRematch()), (I = this.btnRematch) == null || I.addEventListener("click", () => this.handleRematch()), (k = this.brollSearchInput) == null || k.addEventListener("input", (l) => this.handleBrollSearch(l.target.value)), (w = this.zoomSlider) == null || w.addEventListener("input", (l) => {
       const y = parseInt(l.target.value);
       this.pixelsPerSec = y / 100 * 4, this.updateTimelineWidth(), this.renderTimelineBrollBlocks(), this.renderFilmstrip(), this.drawWaveform(), this.drawRuler();
     }), (R = this.btnFitFrame) == null || R.addEventListener("click", () => this.fitTimelineToFrame()), (A = this.btnProjectSelector) == null || A.addEventListener("click", (l) => {
@@ -520,15 +557,15 @@ class Jt {
     };
     (U = this.btnHeaderExport) == null || U.addEventListener("click", n), (W = this.btnCloseModal) == null || W.addEventListener("click", s), (q = this.btnModalCancel) == null || q.addEventListener("click", s), (G = document.getElementById("btn-export-fcpxml")) == null || G.addEventListener("click", () => {
       var C;
-      const l = ((C = this.activeArollFile) == null ? void 0 : C.name) || "C4095.mov", y = this.exporter.generateFCPXML(this.matchedPositions, l, this.totalDurationSec);
+      const l = ((C = this.activeArollFile) == null ? void 0 : C.name) || "C4095.mov", y = this.exporter.generateFCPXML(this.matchedPositions, l, this.totalDurationSec, this.silenceCuts);
       this.exporter.downloadFile(`${this.currentProjectName}_Broll.fcpxml`, y, "application/xml");
     }), (X = document.getElementById("btn-export-premiere")) == null || X.addEventListener("click", () => {
       var C;
-      const l = ((C = this.activeArollFile) == null ? void 0 : C.name) || "C4095.mov", y = this.exporter.generatePremiereXML(this.matchedPositions, l, this.totalDurationSec);
+      const l = ((C = this.activeArollFile) == null ? void 0 : C.name) || "C4095.mov", y = this.exporter.generatePremiereXML(this.matchedPositions, l, this.totalDurationSec, this.silenceCuts);
       this.exporter.downloadFile(`${this.currentProjectName}_Premiere.xml`, y, "application/xml");
     }), (z = document.getElementById("btn-export-davinci")) == null || z.addEventListener("click", () => {
       var C;
-      const l = ((C = this.activeArollFile) == null ? void 0 : C.name) || "C4095.mov", y = this.exporter.generateFCPXML(this.matchedPositions, l, this.totalDurationSec);
+      const l = ((C = this.activeArollFile) == null ? void 0 : C.name) || "C4095.mov", y = this.exporter.generateFCPXML(this.matchedPositions, l, this.totalDurationSec, this.silenceCuts);
       this.exporter.downloadFile(`${this.currentProjectName}_DaVinci.fcpxml`, y, "application/xml");
     }), (K = document.getElementById("btn-export-json")) == null || K.addEventListener("click", () => {
       const l = JSON.stringify({ project: this.currentProjectName, totalDurationSec: this.totalDurationSec, matchedCount: this.matchedPositions.length, placements: this.matchedPositions }, null, 2);
@@ -1077,6 +1114,7 @@ class Jt {
     try {
       const payload = await this.api.getSettings();
       this.settingsData = { ...this.settingsData, ...(payload.settings || {}) };
+      applyLanguage(this.settingsData.language);
       this.api.timeoutMs = Number(this.settingsData.requestTimeoutSec || 300) * 1000;
       this.renderSettingsForm();
       if (this.geminiServiceStatus) this.geminiServiceStatus.textContent = payload.geminiConfigured ? "Đang hoạt động" : "Chưa cấu hình";
@@ -1116,6 +1154,7 @@ class Jt {
     try {
       const payload = await this.api.saveSettings(next);
       this.settingsData = { ...this.settingsData, ...(payload.settings || next) };
+      applyLanguage(this.settingsData.language);
       this.api.timeoutMs = Number(this.settingsData.requestTimeoutSec || 300) * 1000;
       this.renderSettingsForm();
       if (this.settingsSaveState) this.settingsSaveState.textContent = "Đã lưu";
@@ -1466,7 +1505,7 @@ class Jt {
   </library>
 </fcpxml>`;
     else {
-      const u = ((m = this.activeArollFile) == null ? void 0 : m.name) || "C4095.mov", g = this.exporter.generateFCPXML(this.matchedPositions.slice(0, 4), u, this.totalDurationSec);
+      const u = ((m = this.activeArollFile) == null ? void 0 : m.name) || "C4095.mov", g = this.exporter.generateFCPXML(this.matchedPositions.slice(0, 4), u, this.totalDurationSec, this.silenceCuts);
       c.textContent = g.split(`
 `).slice(0, 16).join(`
 `) + `
@@ -1477,24 +1516,24 @@ class Jt {
   }
   exportFCPXML() {
     var i;
-    const t = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov", e = this.exporter.generateFCPXML(this.matchedPositions, t, this.totalDurationSec);
+    const t = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov", e = this.exporter.generateFCPXML(this.matchedPositions, t, this.totalDurationSec, this.silenceCuts);
     this.exporter.downloadFile(`${this.currentProjectName}_Broll.fcpxml`, e, "application/xml");
   }
   exportPremiereXML() {
     var i;
-    const t = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov", e = this.exporter.generatePremiereXML(this.matchedPositions, t, this.totalDurationSec);
+    const t = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov", e = this.exporter.generatePremiereXML(this.matchedPositions, t, this.totalDurationSec, this.silenceCuts);
     this.exporter.downloadFile(`${this.currentProjectName}_Premiere.xml`, e, "application/xml");
   }
   exportDaVinciXML() {
     var i;
-    const t = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov", e = this.exporter.generateFCPXML(this.matchedPositions, t, this.totalDurationSec);
+    const t = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov", e = this.exporter.generateFCPXML(this.matchedPositions, t, this.totalDurationSec, this.silenceCuts);
     this.exporter.downloadFile(`${this.currentProjectName}_DaVinci.fcpxml`, e, "application/xml");
   }
   handleCopyXml() {
     var i;
     const t = document.getElementById("dash-xml-preview-code"), e = document.getElementById("btn-copy-xml-code");
     if (t && e) {
-      const n = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov", s = this.exporter.generateFCPXML(this.matchedPositions, n, this.totalDurationSec);
+      const n = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov", s = this.exporter.generateFCPXML(this.matchedPositions, n, this.totalDurationSec, this.silenceCuts);
       navigator.clipboard.writeText(s).then(() => {
         e.textContent = "\u2713 \u0110\xE3 sao ch\xE9p!", setTimeout(() => e.textContent = "Sao ch\xE9p m\xE3 XML", 1500);
       });
@@ -1506,7 +1545,7 @@ class Jt {
       const e = await $.loadVideoMetadata(t);
       this.showProcessing("\u0110ang n\u1EA1p A-Roll", "\u0110ang t\u1EA1o \u1EA3nh \u0111\u1EA1i di\u1EC7n video...", 30);
       const i = await $.captureFrame(t, Math.min(1.5, e.durationSec / 2));
-      e.thumb = i, this.activeArollFile = e, this.savedProjectId = null, this.isDemoMode = false, this.updateModeUI(), this.currentProjectName = t.name.replace(/\.[^/.]+$/, ""), this.totalDurationSec = Math.round(e.durationSec), this.pixelsPerSec = this.calculateOptimalScale(), this.exporter = new F(this.currentProjectName, 30), this.projNameEl.textContent = this.currentProjectName;
+      e.thumb = i, this.activeArollFile = e, this.savedProjectId = null, this.isDemoMode = false, this.updateModeUI(), this.currentProjectName = t.name.replace(/\.[^/.]+$/, ""), this.totalDurationSec = Math.round(e.durationSec), this.pixelsPerSec = this.calculateOptimalScale(), this.exporter = new ClientTimelineExporter(this.currentProjectName, 30), this.projNameEl.textContent = this.currentProjectName;
       const n = Math.floor(this.totalDurationSec / 60), s = Math.floor(this.totalDurationSec % 60);
       this.projSubEl.textContent = `1 video \xB7 ${n}:${s.toString().padStart(2, "0")}`, this.labelCurrentProject.textContent = this.currentProjectName, this.mainVideoPlayer.src = e.url, this.mainVideoPlayer.style.display = "block", this.emptyDropzone && (this.emptyDropzone.style.display = "none"), this.mainPlayerImage && (this.mainPlayerImage.style.display = "none"), this.transcriptVideoPlayer && (this.transcriptVideoPlayer.src = e.url, this.transcriptVideoPlayer.style.display = "block"), this.updateSelectedFootageCard(e, "A-Roll");
       const r = document.getElementById("label-aroll-count");
@@ -1526,12 +1565,25 @@ class Jt {
       this.btnUploadBroll.innerHTML = `\u23F3 \u0110ang \u0111\u1ECDc ${t.length} clip...`;
       const i = [], n = await this.api.health().catch(() => null);
       for (let o = 0; o < t.length; o++) {
-        const d = t[o], a = await $.loadVideoMetadata(d), c = await $.captureFrame(d, Math.min(1.5, a.durationSec / 2)), h = `B${(this.brollLibrary.length + o + 1).toString().padStart(3, "0")}`, m = { id: h, name: d.name, videoUrl: a.url, file: d, thumb: c, aspectRatio: a.aspectRatio, durationSec: parseFloat(a.durationSec.toFixed(1)), cameraAngle: a.is916 ? "Video d\u1ECDc (9:16)" : "C\u1EADn c\u1EA3nh chi ti\u1EBFt", description: `Clip B-roll th\u1EF1c t\u1EBF t\u1EEB file ${d.name}`, subjects: ["s\u1EA3n ph\u1EA9m", "footage"], tags: ["custom", a.aspectRatio], isUsed: false };
+        const d = t[o], a = await $.loadVideoMetadata(d), c = await $.captureFrame(d, Math.min(1.5, a.durationSec / 2)), h = this.stableBrollId(d), m = { id: h, name: d.name, videoUrl: a.url, file: d, thumb: c, aspectRatio: a.aspectRatio, durationSec: parseFloat(a.durationSec.toFixed(1)), cameraAngle: a.is916 ? "Video d\u1ECDc (9:16)" : "C\u1EADn c\u1EA3nh chi ti\u1EBFt", description: `Clip B-roll th\u1EF1c t\u1EBF t\u1EEB file ${d.name}`, subjects: ["s\u1EA3n ph\u1EA9m", "footage"], tags: ["custom", a.aspectRatio], isUsed: false };
         if (n != null && n.geminiConfigured && c) {
           this.btnUploadBroll.innerHTML = `\u2726 Gemini \u0111ang ph\xE2n t\xEDch ${o + 1}/${t.length}...`;
           try {
-            const u = await this.api.indexBroll({ imageDataUrl: c, clipId: h, filename: d.name, durationSec: a.durationSec, guidance: ((e = this.txtPlacement) == null ? void 0 : e.value) || "" });
-            m.description = u.description || m.description, m.cameraAngle = u.camera_angle || m.cameraAngle, m.subjects = u.subjects || m.subjects, m.tags = u.tags || m.tags, m.techFeatures = u.tech_features || [];
+            this.btnUploadBroll.innerHTML = `◫ Đang phát hiện cảnh ${o + 1}/${t.length}...`;
+            const keyframes = await $.captureSceneKeyframes(d, a.durationSec, { threshold: 0.18, minSceneSec: 1.5, maxScenes: 10 });
+            this.btnUploadBroll.innerHTML = `✦ Gemini đang index ${keyframes.length} cảnh · ${o + 1}/${t.length}...`;
+            const u = await this.api.indexBrollScenes({
+              clipId: h, clipName: d.name, fingerprint: `${d.name}:${d.size}:${d.lastModified}:${a.durationSec.toFixed(3)}`,
+              durationSec: a.durationSec, aspectRatio: a.aspectRatio, guidance: ((e = this.txtPlacement) == null ? void 0 : e.value) || "", scenes: keyframes
+            });
+            m.scenes = u.scenes || [];
+            const firstScene = m.scenes[0];
+            m.description = firstScene?.description || m.description;
+            m.cameraAngle = firstScene?.cameraAngle || m.cameraAngle;
+            m.subjects = [...new Set(m.scenes.flatMap((scene) => scene.subjects || []))];
+            m.tags = [...new Set(m.scenes.flatMap((scene) => scene.tags || []))];
+            m.techFeatures = [...new Set(m.scenes.flatMap((scene) => scene.techFeatures || []))];
+            m.indexCached = !!u.cached;
           } catch (u) {
             console.warn(`Kh\xF4ng th\u1EC3 index ${d.name} b\u1EB1ng Gemini:`, u);
           }
@@ -1545,9 +1597,18 @@ class Jt {
       alert(`L\u1ED7i khi n\u1EA1p danh s\xE1ch B-roll: ${i.message}`), this.btnUploadBroll.innerHTML = "<span>Th\xEAm B-Roll</span>";
     }
   }
+  stableBrollId(file) {
+    const value = `${file.name}:${file.size}:${file.lastModified}`;
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index++) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `B${(hash >>> 0).toString(16).toUpperCase().padStart(8, "0")}`;
+  }
   async switchToOnlineSampleMode() {
     var r, o, d;
-    this.isDemoMode = false, (r = this.btnModeDemo) == null || r.classList.remove("active"), (o = this.btnModeOnlineSample) == null || o.classList.add("active"), (d = this.btnModeCustom) == null || d.classList.remove("active"), this.currentProjectName = "Deebot_T80_Tech_Review", this.exporter = new F(this.currentProjectName, 30), this.totalDurationSec = 22, this.projNameEl.textContent = "Review Deebot T80 Max Omni (Video Th\u1EADt)";
+    this.isDemoMode = false, (r = this.btnModeDemo) == null || r.classList.remove("active"), (o = this.btnModeOnlineSample) == null || o.classList.add("active"), (d = this.btnModeCustom) == null || d.classList.remove("active"), this.currentProjectName = "Deebot_T80_Tech_Review", this.exporter = new ClientTimelineExporter(this.currentProjectName, 30), this.totalDurationSec = 22, this.projNameEl.textContent = "Review Deebot T80 Max Omni (Video Th\u1EADt)";
     const t = Math.floor(this.totalDurationSec / 60), e = Math.floor(this.totalDurationSec % 60);
     this.projSubEl.textContent = `1 video \xB7 ${t}:${e.toString().padStart(2, "0")}`, this.labelCurrentProject.textContent = "Review Deebot T80";
     const i = "/sample_videos/aroll_product_review.mp4";
@@ -1626,10 +1687,47 @@ class Jt {
       r && r.classList.add("active-playing");
     }
   }
-  handleRematch() {
-    this.btnRematch.classList.add("loading"), this.btnRematchText.textContent = "\u0110ang ph\xE2n t\xEDch Gemini...", this.matcher.updateConfig({ minDuration: parseFloat(this.sliderMinDuration.value), maxDuration: parseFloat(this.sliderMaxDuration.value), segmentLength: parseFloat(this.sliderSegmentLen.value), coverageRatio: parseInt(this.sliderCoverage.value) / 100, introHoldSec: parseFloat(this.sliderIntroHold.value), only16_9: this.chkOnly169.checked, placementGuidance: this.txtPlacement.value }), setTimeout(() => {
-      this.matchedPositions = this.matcher.reMatch(this.brollLibrary, this.totalDurationSec, this.transcripts), this.matchedCountTitleEl.textContent = `${this.matchedPositions.length} v\u1ECB tr\xED ch\xE8n`, this.renderMatchedList(), this.renderTimelineBrollBlocks(), this.updateXmlPreview(), this.updateWorkflowUI(), this.btnRematch.classList.remove("loading"), this.btnRematchText.textContent = "Gh\xE9p l\u1EA1i";
-    }, 350);
+  handleBrollSearch(value) {
+    clearTimeout(this.brollSearchTimer);
+    const query = String(value || "").trim();
+    if (!query) { this.renderBrollGrid(this.brollLibrary); return; }
+    this.brollSearchTimer = setTimeout(async () => {
+      try {
+        if (this.brollLibrary.some((clip) => clip.scenes?.length)) {
+          const response = await this.api.searchBroll(query, this.brollLibrary.map((clip) => clip.id));
+          const scores = new Map();
+          (response.results || []).forEach((scene) => scores.set(scene.clipId, Math.max(scores.get(scene.clipId) || 0, scene.searchScore || 0)));
+          const ranked = this.brollLibrary.filter((clip) => scores.has(clip.id)).sort((left, right) => scores.get(right.id) - scores.get(left.id));
+          this.renderBrollGrid(ranked);
+          return;
+        }
+      } catch (error) { console.warn("Semantic search fallback:", error); }
+      const lowered = query.toLowerCase();
+      this.renderBrollGrid(this.brollLibrary.filter((clip) => clip.id.toLowerCase().includes(lowered) || clip.name?.toLowerCase().includes(lowered) || clip.description?.toLowerCase().includes(lowered) || clip.tags?.some((tag) => tag.toLowerCase().includes(lowered))));
+    }, 300);
+  }
+  async handleRematch() {
+    if (!this.btnRematch) return;
+    this.btnRematch.classList.add("loading"), this.btnRematchText.textContent = "Đang semantic matching...";
+    const config = { minDuration: parseFloat(this.sliderMinDuration.value), maxDuration: parseFloat(this.sliderMaxDuration.value), segmentLength: parseFloat(this.sliderSegmentLen.value), coverageRatio: parseInt(this.sliderCoverage.value) / 100, introHoldSec: parseFloat(this.sliderIntroHold.value), only16_9: this.chkOnly169.checked, placementGuidance: this.txtPlacement.value };
+    this.matcher.updateConfig(config);
+    try {
+      if (this.transcripts.length && this.brollLibrary.some((clip) => clip.scenes?.length)) {
+        const result = await this.api.matchBroll({ transcripts: this.transcripts, clipIds: this.brollLibrary.map((clip) => clip.id), totalDurationSec: this.totalDurationSec, minDuration: config.minDuration, maxDuration: config.maxDuration, coverageRatio: config.coverageRatio, introHoldSec: config.introHoldSec, only16_9: config.only16_9, guidance: config.placementGuidance });
+        this.matchedPositions = (result.placements || []).map((placement) => ({ ...placement, startTime: this.matcher.formatTime(placement.startSec), endTime: this.matcher.formatTime(placement.endSec), status: "accepted" }));
+      } else {
+        this.matchedPositions = this.matcher.reMatch(this.brollLibrary, this.totalDurationSec, this.transcripts);
+      }
+      this.matchedCountTitleEl.textContent = `${this.matchedPositions.length} vị trí chèn`;
+      this.renderMatchedList(), this.renderTimelineBrollBlocks(), this.updateXmlPreview(), this.updateWorkflowUI();
+    } catch (error) {
+      console.warn("Semantic matching lỗi, dùng matcher cục bộ:", error);
+      this.matchedPositions = this.matcher.reMatch(this.brollLibrary, this.totalDurationSec, this.transcripts);
+      this.matchedCountTitleEl.textContent = `${this.matchedPositions.length} vị trí chèn`;
+      this.renderMatchedList(), this.renderTimelineBrollBlocks(), this.updateXmlPreview(), this.updateWorkflowUI();
+    } finally {
+      this.btnRematch.classList.remove("loading"), this.btnRematchText.textContent = "Ghép lại";
+    }
   }
   calculateOptimalScale() {
     var i;
@@ -1699,6 +1797,7 @@ class Jt {
             </div>
           ` : ""}
           ${n ? `<span class="broll-ratio-badge">${E(e.aspectRatio)}</span>` : ""}
+          ${e.scenes?.length ? `<span class="broll-scene-badge">${e.scenes.length} cảnh${e.indexCached ? " · cache" : ""}</span>` : ""}
         </div>
         <div class="broll-card-footer">
           <span style="font-weight: 600; color: #fff;">${E(e.id)}</span>
@@ -1731,18 +1830,49 @@ class Jt {
           <span class="match-percentage-badge">${t.matchPercentage}%</span>
         </div>
         <div class="matched-description-text">${E(t.description)}</div>
+        ${t.sceneId ? `<div class="matched-source-info">Nguồn ${this.matcher.formatTime(t.sourceInSec || 0)} → ${this.matcher.formatTime(t.sourceOutSec || 0)} · ${E(t.reason || "Semantic match")}</div>` : ""}
         <div class="matched-card-actions">
           <div style="font-size: 10px; color: var(--text-sub);">${t.durationSec} gi\xE2y</div>
           <div class="card-action-icons">
-            <button class="icon-tool-mini" title="Ch\u1EA5p nh\u1EADn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--color-green)"><polyline points="20 6 9 17 4 12"/></svg></button>
-            <button class="icon-tool-mini" title="\u0110\u1ED5i B-roll kh\xE1c"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button>
+            <button class="icon-tool-mini action-accept" title="Ch\u1EA5p nh\u1EADn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color: var(--color-green)"><polyline points="20 6 9 17 4 12"/></svg></button>
+            <button class="icon-tool-mini action-replace" title="\u0110\u1ED5i B-roll kh\xE1c"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></svg></button>
             <button class="icon-tool-mini delete" title="X\xF3a ph\xE2n \u0111o\u1EA1n"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
         </div>
-      `, e.addEventListener("click", () => this.seekTo(t.startSec)), e.querySelector(".icon-tool-mini.delete").addEventListener("click", (i) => {
+      `, e.addEventListener("click", () => this.seekTo(t.startSec)), e.querySelector(".action-accept").addEventListener("click", (i) => {
+        i.stopPropagation(), t.status = "accepted", e.classList.add("accepted");
+      }), e.querySelector(".action-replace").addEventListener("click", (i) => {
+        i.stopPropagation(), this.replaceBrollPlacement(t);
+      }), e.querySelector(".icon-tool-mini.delete").addEventListener("click", (i) => {
         i.stopPropagation(), this.matchedPositions = this.matchedPositions.filter((n) => n.id !== t.id), this.matchedCountTitleEl.textContent = `${this.matchedPositions.length} v\u1ECB tr\xED ch\xE8n`, this.renderMatchedList(), this.renderTimelineBrollBlocks(), this.updateXmlPreview(), this.updateWorkflowUI();
       }), this.matchedListEl.appendChild(e);
     });
+  }
+  async replaceBrollPlacement(placement) {
+    const alternatives = this.brollLibrary.filter((clip) => clip.id !== placement.clipId);
+    if (!alternatives.length) return alert("Chưa có B-roll khác để thay thế.");
+    try {
+      let selected = alternatives[0], scene = null;
+      if (placement.matchedSpeech && alternatives.some((clip) => clip.scenes?.length)) {
+        const result = await this.api.searchBroll(placement.matchedSpeech, alternatives.map((clip) => clip.id));
+        scene = result.results?.[0] || null;
+        selected = alternatives.find((clip) => clip.id === scene?.clipId) || selected;
+      }
+      const sourceIn = scene ? Number(scene.startSec || 0) : 0;
+      const available = scene ? Math.max(0, Number(scene.endSec || 0) - sourceIn) : selected.durationSec;
+      const duration = Math.min(placement.durationSec, available || placement.durationSec);
+      Object.assign(placement, {
+        clipId: selected.id, clipName: selected.name, sceneId: scene?.sceneId || null,
+        sourceInSec: sourceIn, sourceOutSec: sourceIn + duration, sourceDurationSec: selected.durationSec,
+        durationSec: duration, endSec: placement.startSec + duration,
+        description: scene?.description || selected.description, status: "suggested",
+        matchPercentage: scene ? Math.max(1, Math.round((scene.searchScore || 0) * 100)) : placement.matchPercentage,
+        reason: scene ? `Phương án thay thế · semantic ${Math.round((scene.semanticScore || 0) * 100)}%` : "Phương án thay thế cục bộ",
+      });
+      this.renderMatchedList(), this.renderTimelineBrollBlocks(), this.updateXmlPreview();
+    } catch (error) {
+      alert(`Không thể tìm B-roll thay thế: ${error.message}`);
+    }
   }
   renderFilmstrip() {
     if (this.trackArollFilmstripEl.innerHTML = "", !this.activeArollFile || this.totalDurationSec <= 0) return;
@@ -1770,8 +1900,30 @@ class Jt {
         <span style="font-size: 8.5px; opacity: 0.85;">${t.durationSec}s</span>
       `, e.addEventListener("click", (s) => {
         s.stopPropagation(), this.seekTo(t.startSec);
-      }), this.trackBrollRowEl.appendChild(e);
+      }), e.addEventListener("pointerdown", (event) => this.beginTimelineDrag(event, t, e)), this.trackBrollRowEl.appendChild(e);
     });
+  }
+  beginTimelineDrag(event, placement, element) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const pointerStart = event.clientX, originalStart = placement.startSec, duration = placement.endSec - placement.startSec;
+    element.setPointerCapture(event.pointerId), element.classList.add("dragging");
+    const move = (current) => {
+      const requested = originalStart + (current.clientX - pointerStart) / this.pixelsPerSec;
+      const maxStart = Math.max(0, this.totalDurationSec - duration);
+      let nextStart = Math.round(Math.max(0, Math.min(maxStart, requested)) * 10) / 10;
+      const conflict = this.matchedPositions.filter((item) => item !== placement).find((item) => nextStart < item.endSec && nextStart + duration > item.startSec);
+      if (conflict) nextStart = requested >= originalStart ? conflict.endSec : conflict.startSec - duration;
+      nextStart = Math.round(Math.max(0, Math.min(maxStart, nextStart)) * 10) / 10;
+      placement.startSec = nextStart, placement.endSec = nextStart + duration;
+      placement.startTime = this.matcher.formatTime(placement.startSec), placement.endTime = this.matcher.formatTime(placement.endSec);
+      element.style.left = `${placement.startSec * this.pixelsPerSec}px`;
+    };
+    const finish = () => {
+      element.classList.remove("dragging"), element.removeEventListener("pointermove", move), element.removeEventListener("pointerup", finish), element.removeEventListener("pointercancel", finish);
+      this.matchedPositions.sort((left, right) => left.startSec - right.startSec), this.renderMatchedList(), this.renderTimelineBrollBlocks(), this.updateXmlPreview();
+    };
+    element.addEventListener("pointermove", move), element.addEventListener("pointerup", finish), element.addEventListener("pointercancel", finish);
   }
   drawWaveform() {
     if (!this.trackAudioWaveformEl || (this.trackAudioWaveformEl.innerHTML = "", !this.activeArollFile || this.totalDurationSec <= 0)) return;
@@ -1826,7 +1978,7 @@ class Jt {
 </fcpxml>`;
         return;
       }
-      const e = ((t = this.activeArollFile) == null ? void 0 : t.name) || "C4095.mov", i = this.exporter.generateFCPXML(this.matchedPositions.slice(0, 3), e, this.totalDurationSec);
+      const e = ((t = this.activeArollFile) == null ? void 0 : t.name) || "C4095.mov", i = this.exporter.generateFCPXML(this.matchedPositions.slice(0, 3), e, this.totalDurationSec, this.silenceCuts);
       this.xmlPreviewCode.textContent = i.split(`
 `).slice(0, 14).join(`
 `) + `

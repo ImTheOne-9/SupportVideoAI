@@ -632,6 +632,22 @@ body {
   border-radius: 3px;
 }
 
+.broll-scene-badge {
+  position: absolute;
+  left: 5px;
+  bottom: 5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(9, 19, 31, .82);
+  color: #75baff;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.broll-timeline-block { cursor: grab; touch-action: none; }
+.broll-timeline-block.dragging { cursor: grabbing; opacity: .82; z-index: 5; }
+.matched-card-item.accepted { border-color: rgba(52, 199, 89, .55); }
+
 .broll-card-footer {
   padding: 4px 6px;
   font-size: 10.5px;
@@ -1386,6 +1402,7 @@ body {
   color: #d1d1d6;
   line-height: 1.35;
 }
+.matched-source-info { margin-top: 5px; color: #75baff; font-size: 9.5px; line-height: 1.35; }
 
 .matched-card-actions {
   display: flex;

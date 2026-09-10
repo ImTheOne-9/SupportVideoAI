@@ -9,8 +9,9 @@ import json
 from typing import Dict, Any, List, Optional
 
 class GeminiBrollIndexer:
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
 
     def get_vision_prompt(self, user_guidance: str = "") -> str:
         base_prompt = (
@@ -114,7 +115,7 @@ class GeminiBrollIndexer:
                 
             prompt = self.get_vision_prompt(user_guidance)
             response = client.models.generate_content(
-                model='gemini-3.6-flash',
+                model=self.model,
                 contents=[
                     types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
                     prompt
@@ -145,7 +146,7 @@ class GeminiBrollIndexer:
 
         client = genai.Client(api_key=self.api_key)
         response = client.models.generate_content(
-            model=os.environ.get("GEMINI_MODEL", "gemini-3.6-flash"),
+            model=self.model,
             contents=[
                 types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
                 self.get_vision_prompt(user_guidance),
