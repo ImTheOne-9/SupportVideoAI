@@ -1,0 +1,88 @@
+      <!-- AI METADATA PAGE -->
+      <div class="workspace-view" id="view-metadata" style="display: none;">
+        <div class="workflow-prerequisite-empty" data-requires-transcript hidden>
+          <div class="workflow-prerequisite-card">
+            <div class="workflow-prerequisite-icon">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8Z"/><circle cx="7" cy="7" r="1"/></svg>
+            </div>
+            <strong>Chưa có bản ghi lời</strong>
+            <span>Hãy chép lời video hoặc nhập file SRT trước khi tạo metadata.</span>
+            <button class="btn-primary-action btn-go-transcript-empty">Đi tới trang Chép lời</button>
+          </div>
+        </div>
+
+        <div class="view-panel-container">
+          <div class="view-header-bar metadata-header">
+            <div class="view-header-left">
+              <h2 class="view-title">Tự động tạo metadata</h2>
+              <span class="view-subtitle">Tạo tiêu đề, mô tả và hashtag từ nội dung video bằng Gemini</span>
+            </div>
+            <div class="view-header-right">
+              <span class="summary-model-badge">✦ Gemini · gemini-3.6-flash</span>
+              <button class="btn-primary-action" id="btn-generate-metadata">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>
+                <span>Tạo metadata</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="metadata-page-scroll">
+            <section class="summary-settings-card metadata-settings-card">
+              <div class="summary-section-label">Ngôn ngữ đầu ra</div>
+              <div class="summary-segmented-control" data-metadata-group="language">
+                <button class="active" data-value="auto">Tự động nhận diện</button>
+                <button data-value="vi">Tiếng Việt</button>
+                <button data-value="en">English</button>
+              </div>
+
+              <div class="summary-settings-divider"></div>
+              <div class="summary-section-label">Giọng văn</div>
+              <div class="summary-tone-grid" data-metadata-group="tone">
+                <button data-value="neutral"><span>○</span>Trung lập</button>
+                <button class="active" data-value="professional"><span>▣</span>Chuyên nghiệp</button>
+                <button data-value="casual"><span>☻</span>Gần gũi</button>
+                <button data-value="engaging"><span>☆</span>Cuốn hút</button>
+                <button data-value="educational"><span>▤</span>Giáo dục</button>
+                <button data-value="dramatic"><span>♨</span>Kịch tính</button>
+                <button data-value="custom"><span>⌁</span>Tùy chỉnh</button>
+              </div>
+              <div class="summary-custom-tone" id="metadata-custom-tone-wrap" hidden>
+                <label for="metadata-custom-tone">Mô tả giọng văn bạn muốn</label>
+                <textarea id="metadata-custom-tone" class="custom-textarea" placeholder="Ví dụ: hấp dẫn cho YouTube, tập trung SEO nhưng không giật tít..."></textarea>
+              </div>
+            </section>
+
+            <section class="metadata-results-column">
+              <div class="metadata-status-bar">
+                <div class="summary-result-title">
+                  <span class="summary-status-icon" id="metadata-status-icon">✦</span>
+                  <strong>Metadata</strong>
+                  <span id="metadata-result-meta">Gemini</span>
+                </div>
+                <div class="metadata-global-actions">
+                  <button class="btn-secondary-action" id="btn-copy-all-metadata" disabled>Sao chép tất cả</button>
+                  <button class="btn-secondary-action" id="btn-regenerate-metadata" disabled>Tạo lại</button>
+                </div>
+              </div>
+
+              <article class="metadata-output-card">
+                <div class="metadata-output-label">Tiêu đề</div>
+                <div class="metadata-output-text empty" id="metadata-title-output">Chưa có tiêu đề.</div>
+                <button class="metadata-copy-button" data-copy-metadata="title" disabled>Sao chép tiêu đề</button>
+              </article>
+
+              <article class="metadata-output-card">
+                <div class="metadata-output-label">Mô tả</div>
+                <div class="metadata-output-text empty" id="metadata-description-output">Chưa có mô tả.</div>
+                <button class="metadata-copy-button" data-copy-metadata="description" disabled>Sao chép mô tả</button>
+              </article>
+
+              <article class="metadata-output-card">
+                <div class="metadata-output-label">Hashtag</div>
+                <div class="metadata-output-text metadata-hashtags empty" id="metadata-hashtags-output">Chưa có hashtag.</div>
+                <button class="metadata-copy-button" data-copy-metadata="hashtags" disabled>Sao chép hashtag</button>
+              </article>
+            </section>
+          </div>
+        </div>
+      </div>

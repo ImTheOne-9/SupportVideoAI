@@ -7,6 +7,8 @@ import math
 import re
 from typing import Any
 
+from engine.domain.timeline import validate_non_overlapping
+
 
 def tokenize(text: str) -> list[str]:
     return re.findall(r"[\wÀ-ỹ]+", str(text).lower(), flags=re.UNICODE)
@@ -113,4 +115,5 @@ def create_placements(
         usage[clip_id] = usage.get(clip_id, 0) + 1
         accumulated += duration
         last_end = timeline_end + 0.5
+    validate_non_overlapping(placements, total_duration_sec)
     return placements

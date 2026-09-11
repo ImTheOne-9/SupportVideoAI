@@ -1,0 +1,278 @@
+      <!-- VIEW 4: B-ROLL MATCHING (Chính) -->
+      <div class="workspace-view" id="view-broll" style="display: none;">
+        <div class="workflow-prerequisite-empty" data-requires-aroll hidden>
+          <div class="workflow-prerequisite-card">
+            <div class="workflow-prerequisite-icon">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+            </div>
+            <strong>Chưa có video A-Roll</strong>
+            <span>Hãy nạp video ở trang Chép lời trước khi bắt đầu ghép B-Roll.</span>
+            <button class="btn-primary-action btn-go-transcript-empty">Đi tới trang Chép lời</button>
+          </div>
+        </div>
+        <!-- SUB-SIDEBAR: MEDIA POOL & B-ROLL GALLERY -->
+        <section class="sidebar-media" aria-label="Thư viện footage">
+          <div class="media-section-header">
+            <span class="section-label" id="label-aroll-count">Video chính (0)</span>
+            <button class="btn-action-pill" id="btn-upload-aroll" title="Chọn file video A-roll từ máy tính">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Nạp A-Roll</span>
+            </button>
+          </div>
+
+          <!-- A-Roll List -->
+          <div class="aroll-list" id="aroll-list-container">
+            <!-- Rendered dynamically -->
+          </div>
+          <div class="aroll-summary" id="aroll-summary-text">Chưa có video · Kéo thả để nạp</div>
+
+          <!-- B-Roll Section -->
+          <div class="broll-tools-header">
+            <div class="media-section-header" style="padding: 0;">
+              <span class="section-label" id="broll-count-title">Clip B-Roll (0)</span>
+              <button class="btn-action-pill" id="btn-upload-broll" title="Chọn hàng loạt video B-roll từ máy tính">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Nạp B-Roll</span>
+              </button>
+            </div>
+
+            <!-- Search B-roll by AI frame contents -->
+            <div class="search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="broll-search-input" placeholder="Tìm kiếm clip theo mô tả AI, từ khóa..." aria-label="Tìm clip">
+            </div>
+
+            <div class="broll-view-controls">
+              <div class="broll-view-left">
+                <button class="icon-btn-ghost" title="Chế độ lưới"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></button>
+                <input type="range" class="zoom-slider-mini" min="1" max="3" value="2" title="Kích thước thumbnail">
+              </div>
+              <span class="badge-warning" id="badge-diff-ratio" style="display:none;">0 khác tỷ lệ</span>
+            </div>
+          </div>
+
+          <!-- 2-Column B-Roll Thumbnails Grid -->
+          <div class="broll-grid-container" id="broll-grid">
+            <!-- Rendered dynamically by app.js -->
+          </div>
+
+          <!-- Bottom Selected Footage Info Card -->
+          <div class="selected-footage-card" id="selected-footage-card">
+            <div class="footage-thumb-small-empty" id="card-foot-thumb-empty">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+            </div>
+            <img src="" alt="Selected Footage" class="footage-thumb-small" id="card-foot-thumb" style="display:none;">
+            <div class="footage-details">
+              <div class="footage-details-title" id="card-foot-title">Chưa chọn clip</div>
+              <div id="card-foot-dur">-- · --</div>
+              <div id="card-foot-res">-- x -- · --</div>
+              <div id="card-foot-size">-- MB</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. CENTER WORKSPACE: VIDEO PLAYER & MULTI-TRACK TIMELINE -->
+        <section class="center-workspace" aria-label="Khu vực dựng phim">
+
+          <!-- Video Player Area (Real HTML5 Video Player with Empty Dropzone) -->
+          <div class="player-container">
+            <div class="video-screen" id="video-screen-wrapper">
+              <!-- Empty Dropzone State (Giống Premiere Pro / CapCut) -->
+              <div class="empty-dropzone" id="empty-dropzone">
+                <div class="dropzone-icon">
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                </div>
+                <div class="dropzone-title">Kéo thả video A-Roll vào đây</div>
+                <div class="dropzone-sub">Hỗ trợ định dạng MP4, MOV, WebM từ máy tính</div>
+                <button class="btn-dropzone-upload" id="btn-dropzone-upload">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span>Chọn Video Từ Máy Tính</span>
+                </button>
+              </div>
+
+              <!-- Real HTML5 Video Player -->
+              <video id="main-video-player" playsinline preload="auto" style="display:none; width: 100%; height: 100%; object-fit: contain;"></video>
+              <img id="main-player-image" alt="A-Roll Frame" style="display:none; width: 100%; height: 100%; object-fit: contain;">
+
+              <!-- Active B-roll Picture-in-Picture / Cutaway Overlay -->
+              <div class="active-broll-overlay" id="active-broll-overlay">
+                <video id="broll-overlay-video" playsinline muted loop style="display:none; width:100%; height:100%; object-fit: cover;"></video>
+                <img src="" alt="B-Roll Overlay" id="broll-overlay-img" style="display:none;">
+                <div class="broll-overlay-tag" id="broll-overlay-label">B-ROLL</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Player Controls Bar -->
+          <div class="player-controls-bar">
+            <div class="player-left-tools">
+              <button class="play-pause-btn" id="btn-play-pause" title="Phát / Tạm dừng (Phím Space)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              </button>
+              <div class="timecode-display" id="player-timecode">00:00</div>
+              <select class="speed-select" id="player-speed-select" title="Tốc độ phát">
+                <option value="1.0">1.0x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2.0">2.0x</option>
+              </select>
+              <button class="icon-btn-ghost" title="Lặp lại"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></button>
+              <button class="icon-btn-ghost" title="Công cụ cắt (Blade tool)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></button>
+            </div>
+
+            <div class="player-center-tools">
+              <span style="font-size: 11px; color: var(--text-sub);" id="player-status-badge">Sẵn sàng</span>
+            </div>
+
+            <div class="player-right-tools">
+              <button class="icon-btn-ghost" id="btn-fit-frame" title="Vừa khung hình">Vừa khung</button>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="range" id="timeline-zoom-slider" min="50" max="250" value="100" class="zoom-slider-mini" title="Zoom Timeline">
+            </div>
+          </div>
+
+          <!-- Multi-Track Timeline -->
+          <div class="timeline-area" id="timeline-area">
+            <!-- Tracks Canvas Container -->
+            <div class="timeline-tracks-container" id="timeline-tracks-scroll">
+              <div class="timeline-canvas-wrapper" id="timeline-canvas-wrapper">
+
+                <!-- Timecode Ruler (Inside Wrapper so it aligns 1:1 with all tracks) -->
+                <div class="timeline-ruler" id="timeline-ruler">
+                  <canvas class="ruler-canvas" id="ruler-canvas"></canvas>
+                </div>
+
+                <!-- Red Playhead -->
+                <div class="playhead-line" id="playhead-line" style="left: 0px;">
+                  <div class="playhead-handle" id="playhead-handle"></div>
+                  <div class="playhead-preview-tooltip" id="playhead-tooltip" style="display:none;">
+                    <img src="" alt="Preview" id="tooltip-preview-img">
+                  </div>
+                </div>
+
+                <!-- Track 2: B-Roll Purple Track -->
+                <div class="track-broll-row" id="track-broll-row" title="Track 2: B-Roll Clips">
+                  <!-- Rendered dynamically by app.js -->
+                </div>
+
+                <!-- Track 1: A-Roll Video Filmstrip -->
+                <div class="track-aroll-filmstrip" id="track-aroll-filmstrip" title="Track 1: A-Roll Primary Video">
+                  <!-- Rendered dynamically by app.js -->
+                </div>
+
+                <!-- Track 0: A-Roll Audio Waveform -->
+                <div class="track-audio-waveform" id="track-audio-waveform" title="Track 0: A-Roll Audio Waveform">
+                  <!-- Rendered dynamically by app.js -->
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- 6. RIGHT SIDEBAR: B-ROLL MATCHING CONFIGURATION PANEL -->
+        <aside class="sidebar-matcher-panel" aria-label="Bảng điều khiển B-Roll">
+          <div class="matcher-panel-header">
+            <div class="panel-title-group">
+              <span class="panel-title">B-Roll</span>
+            </div>
+            <div class="panel-header-actions">
+              <button class="icon-btn-ghost" title="Tìm kiếm"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
+              <button class="icon-btn-ghost" title="Nhân bản"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="13" height="13" x="9" y="9" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+              <button class="icon-btn-ghost" title="Bookmark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg></button>
+              <button class="icon-btn-ghost" id="btn-header-export" title="Chia sẻ / Xuất"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></button>
+            </div>
+          </div>
+
+          <div class="matcher-scrollable-content">
+            <div class="panel-intro-text">
+              Clip được ghép vào các phân đoạn cần chèn. Nội dung để xuất đều do bạn chấp nhận, đổi hoặc bỏ.
+            </div>
+
+            <!-- Prompt 1: Footage Description Guidance -->
+            <div class="prompt-group">
+              <div class="prompt-label-row">
+                <span class="prompt-label">Cách mô tả footage của bạn</span>
+                <div class="gemini-model-badge">
+                  <span>Số clip cùng lúc: 3</span>
+                  <span>⚡ Gemini</span>
+                </div>
+              </div>
+              <textarea class="custom-textarea" id="txt-footage-guidance" placeholder="Ví dụ: phân loại luôn thương hiệu của laptop hoặc sản phẩm...">Ví dụ: phân loại luôn thương hiệu của laptop hoặc sản phẩm. Được thêm vào mọi lần lập chỉ mục. Các clip đã mô tả vẫn giữ nguyên cho tới khi bạn mô tả lại.</textarea>
+            </div>
+
+            <!-- Prompt 2: Placement Heuristics Guidance -->
+            <div class="prompt-group">
+              <span class="prompt-label">Cách đặt B-roll của bạn</span>
+              <textarea class="custom-textarea" id="txt-placement-guidance" placeholder="Hướng dẫn AI ghép B-roll...">Ở những đoạn nói về công năng, bắt buộc cần có B-roll mô tả kỹ công năng tương ứng, và 2-3 B-roll ghép liên tục là chấp nhận được.</textarea>
+            </div>
+
+            <!-- 5 Sliders for Granular Control -->
+            <div class="sliders-grid">
+              <div class="slider-row">
+                <div class="slider-labels">
+                  <span>Ngắn nhất</span>
+                  <span class="slider-value-pill" id="val-min-duration">3.0s</span>
+                </div>
+                <input type="range" id="slider-min-duration" min="1.0" max="8.0" step="0.5" value="3.0" class="slider-input">
+              </div>
+
+              <div class="slider-row">
+                <div class="slider-labels">
+                  <span>Dài nhất</span>
+                  <span class="slider-value-pill" id="val-max-duration">12.0s</span>
+                </div>
+                <input type="range" id="slider-max-duration" min="5.0" max="25.0" step="0.5" value="12.0" class="slider-input">
+              </div>
+
+              <div class="slider-row">
+                <div class="slider-labels">
+                  <span>Độ dài phân đoạn</span>
+                  <span class="slider-value-pill" id="val-segment-len">16s</span>
+                </div>
+                <input type="range" id="slider-segment-len" min="8" max="30" step="1" value="16" class="slider-input">
+              </div>
+
+              <div class="slider-row">
+                <div class="slider-labels">
+                  <span>Tỷ lệ phủ</span>
+                  <span class="slider-value-pill" id="val-coverage">70%</span>
+                </div>
+                <input type="range" id="slider-coverage" min="20" max="100" step="5" value="70" class="slider-input">
+              </div>
+
+              <div class="slider-row">
+                <div class="slider-labels">
+                  <span>Giữ hình người nói ở đầu video</span>
+                  <span class="slider-value-pill" id="val-intro-hold">3s</span>
+                </div>
+                <input type="range" id="slider-intro-hold" min="0" max="10" step="1" value="3" class="slider-input">
+              </div>
+
+              <label class="checkbox-row">
+                <input type="checkbox" id="chk-only-16-9" checked>
+                <span>Chỉ dùng B-roll 16:9</span>
+              </label>
+            </div>
+
+            <!-- "Ghép lại" Action Button -->
+            <button class="btn-rematch" id="btn-rematch">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m21.5 2-1.9 5.8a2 2 0 0 1-1.3 1.3L12.5 11l5.8 1.9a2 2 0 0 1 1.3 1.3L21.5 20l1.9-5.8a2 2 0 0 1 1.3-1.3L30.5 11l-5.8-1.9a2 2 0 0 1-1.3-1.3L21.5 2z"/></svg>
+              <span id="btn-rematch-text">Ghép lại</span>
+            </button>
+
+            <!-- 50 Matched Positions List -->
+            <div class="matched-list-section">
+              <div class="matched-list-header">
+                <span class="matched-count-title" id="matched-count-title">0 vị trí chèn</span>
+                <button class="btn-link-action" id="btn-accept-all">Chấp nhận tất cả</button>
+              </div>
+
+              <div class="matched-cards-container" id="matched-cards-container">
+                <!-- Rendered dynamically by app.js -->
+              </div>
+            </div>
+
+          </div>
+        </aside>
+      </div>

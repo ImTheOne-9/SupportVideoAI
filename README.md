@@ -54,15 +54,30 @@ DaVinci Resolve             DaVinci Resolve
 
 ### 1. Yêu cầu môi trường
 * **Node.js**: Phiên bản 18+ trở lên.
-* **Python**: Phiên bản 3.10+ trở lên.
+* **Python**: Phiên bản 3.11–3.13.
+* **FFmpeg**: Phải có trong `PATH` nếu bật chuẩn hóa âm thanh (mặc định bật).
 
 ### 2. Khởi chạy AI engine cục bộ
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+# Windows PowerShell: .\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 python -m engine.api_server
 ```
 
 Engine chạy tại `http://127.0.0.1:8765`. Có thể đặt `GEMINI_API_KEY` trong môi trường hoặc nhập key từ giao diện; key nhập từ giao diện chỉ được giữ trong RAM của engine, không lưu trong trình duyệt.
+
+Trên Windows có thể cài toàn bộ bằng script:
+
+```powershell
+.\scripts\install.ps1
+```
+
+Kiểm tra nhanh môi trường và dependency:
+
+```powershell
+npm run doctor
+```
 
 ### 3. Khởi chạy Giao diện Web (Vite)
 ```bash
@@ -72,9 +87,25 @@ npm install
 # 2. Khởi chạy server giao diện
 npm run dev
 ```
-Truy cập trình duyệt tại: `http://localhost:5173/`
+Hoặc chạy một lệnh `npm start` để khởi động cả hai tiến trình. Truy cập trình
+duyệt tại: `http://localhost:5173/`.
 
-### 4. Chạy thử các module Python độc lập
+### 4. Chạy và đóng gói ứng dụng Windows
+
+```powershell
+# Electron development mode
+npm run desktop:dev
+
+# Tạo Python sidecar và bộ cài NSIS
+npm run desktop:dist
+```
+
+Artifact được tạo tại `release/CreatorUtils-1.0.0-Setup.exe`. Bản desktop đã
+nhúng FFmpeg và Python runtime; model Whisper vẫn được tải theo lựa chọn để
+tránh làm bộ cài lớn thêm 75 MB đến 3,1 GB. Gemini API key được mã hóa bằng
+Windows DPAPI thông qua Electron `safeStorage`.
+
+### 5. Chạy thử các module Python độc lập
 ```bash
 # Chạy thử nghiệm bộ so khớp Python CLI
 python -m engine.broll_matcher
@@ -90,9 +121,25 @@ python -m engine.scene_detector
 Hệ thống đi kèm bộ unit test toàn diện kiểm tra tính đúng đắn của thuật toán:
 
 ```bash
-python -m unittest discover -s tests
-npm run test:js
+npm test
 ```
+
+Lệnh trên kiểm tra Python compile, JavaScript tests, Python unit/integration
+tests và Vite production build. Xem [docs/TESTING.md](docs/TESTING.md) để biết
+quy trình nghiệm thu media và import NLE.
+
+## 🧭 Kiến trúc và quy tắc phát triển
+
+Xem [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) để biết ranh giới frontend,
+backend, domain model, persistence, security và trạng thái migration.
+
+Các nguyên tắc chính:
+
+- `src/main.js` là entry point; logic mới đi vào module feature/service.
+- `engine/api_server.py` chỉ là HTTP boundary; integration nặng nằm trong
+  `engine/services`, invariant thuần nằm trong `engine/domain`.
+- JSON API dùng camelCase, Python domain dùng snake_case.
+- Không bind AI engine ra mạng công cộng nếu chưa có authentication/TLS.
 
 ### Các test case bao gồm:
 1. **`test_intro_hold_preservation`**: Kiểm tra đảm bảo không có clip B-roll nào bị chèn vào khoảng thời gian giữ mặt người nói ở đầu video (0s -> 3s).
@@ -108,7 +155,12 @@ npm run test:js
 
 ```
 .
+├── build/                    # Plugin build-time (HTML partials)
+├── desktop/                  # Electron shell và Python sidecar entry
 ├── engine/                   # Lõi thuật toán và AI xử lý
+│   ├── api/                  # Security/transport helpers
+│   ├── domain/               # Timeline invariant và edit decision thuần
+│   ├── services/             # Gemini, Whisper và content use cases
 │   ├── broll_matcher.py      # Thuật toán so khớp heuristic & semantic vector
 │   ├── gemini_indexer.py     # Module gọi Gemini Vision API phân tích footage
 │   ├── scene_detector.py     # Phát hiện Big-change để lấy mẫu keyframe
@@ -118,12 +170,16 @@ npm run test:js
 │   └── test_xml_export.py    # Test case sinh file XML NLE
 ├── public/assets/            # Hình ảnh mockup review 4K & thumbnail B-roll
 ├── src/                      # Mã nguồn giao diện Web Frontend
-│   ├── app.js                # Controller điều phối UI, video player & timeline
+│   ├── app.js                # Application shell/composition mỏng
+│   ├── features/             # 13 feature module theo màn hình/nghiệp vụ
+│   ├── styles/               # 9 CSS module theo khu vực giao diện
+│   ├── ui/partials/          # HTML partial cho từng view/modal
 │   ├── demo_data.js          # Dữ liệu mẫu 107 B-roll & A-roll Deebot
 │   ├── exporter_client.js    # Tải file XML/FCPXML trực tiếp trên trình duyệt
 │   ├── matcher_client.js     # Thuật toán matching thời gian thực trên browser
-│   └── style.css             # Thiết kế macOS Dark Mode cao cấp
-├── index.html                # Cấu trúc giao diện ứng dụng chính
+│   └── style.css             # Entry import các CSS module
+├── index.html                # HTML shell, partials được ghép bởi Vite
+├── electron-builder.yml      # Cấu hình bộ cài Windows
 ├── package.json              # Cấu hình Vite & Scripts
 ├── requirements.txt          # Thư viện Python
 └── README.md                 # Tài liệu hướng dẫn dự án

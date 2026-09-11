@@ -1,0 +1,25 @@
+appId: vn.creatorutils.desktop
+productName: CreatorUtils
+electronDist: node_modules/electron/dist
+directories:
+  output: release
+files:
+  - desktop/main.cjs
+  - desktop/preload.cjs
+  - dist/**/*
+  - package.json
+extraResources:
+  - from: desktop/engine-dist/creatorutils-engine.exe
+    to: engine/creatorutils-engine.exe
+  - from: node_modules/ffmpeg-static/ffmpeg.exe
+    to: ffmpeg/ffmpeg.exe
+asar: true
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: CreatorUtils-${version}-Setup.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

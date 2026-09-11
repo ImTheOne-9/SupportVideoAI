@@ -1,0 +1,107 @@
+      <!-- SAVED TRANSCRIPTS PAGE -->
+      <div class="workspace-view" id="view-settings" style="display: none;">
+        <div class="settings-shell">
+          <div class="settings-page-header">
+            <div>
+              <h2 data-i18n="settings">Cài đặt</h2>
+              <p data-i18n="settingsSubtitle">Quản lý chép lời, mô hình cục bộ và dịch vụ AI.</p>
+            </div>
+            <span class="settings-save-state" id="settings-save-state">Đã đồng bộ</span>
+          </div>
+
+          <div class="settings-tabs" role="tablist">
+            <button class="active" data-settings-tab="general" data-i18n="general">Chung</button>
+            <button data-settings-tab="models" data-i18n="models">Mô hình chép lời</button>
+            <button data-settings-tab="services" data-i18n="services">Dịch vụ AI</button>
+          </div>
+
+          <div class="settings-scroll">
+            <section class="settings-tab-panel active" data-settings-panel="general">
+              <h3>Ngôn ngữ</h3>
+              <div class="settings-card">
+                <label class="settings-row">
+                  <span><strong>Ngôn ngữ ứng dụng</strong><small>Ngôn ngữ hiển thị của CreatorUtils.</small></span>
+                  <select id="setting-language"><option value="vi">Tiếng Việt</option><option value="en">English</option></select>
+                </label>
+              </div>
+
+              <h3>Chép lời</h3>
+              <div class="settings-card">
+                <label class="settings-row">
+                  <span><strong>Tự chuẩn hóa âm thanh nhỏ</strong><small>Tăng âm lượng bản ghi nhỏ trước khi Whisper nhận diện.</small></span>
+                  <input class="settings-switch" type="checkbox" id="setting-normalize-audio" checked>
+                </label>
+                <div class="settings-divider"></div>
+                <div class="settings-row">
+                  <span><strong>Tăng âm lượng thủ công</strong><small>Áp dụng thêm trên mức tự chuẩn hóa.</small></span>
+                  <div class="settings-stepper"><button id="setting-gain-minus">−</button><output id="setting-gain-value">+0 dB</output><button id="setting-gain-plus">+</button></div>
+                </div>
+              </div>
+
+              <h3>Xử lý</h3>
+              <div class="settings-card">
+                <label class="settings-row">
+                  <span><strong>Thời gian chờ AI</strong><small>Tăng lên nếu video dài thường gặp lỗi hết thời gian.</small></span>
+                  <span class="settings-number"><input id="setting-timeout" type="number" min="30" max="1800" step="30" value="300"><em>giây</em></span>
+                </label>
+              </div>
+            </section>
+
+            <section class="settings-tab-panel" data-settings-panel="models">
+              <div class="settings-section-heading">
+                <div><h3>Mô hình Faster‑Whisper</h3><p>Model được lưu cục bộ và chỉ tải một lần.</p></div>
+                <input id="model-search" class="settings-search" placeholder="Tìm mô hình...">
+              </div>
+              <div class="settings-card model-list" id="whisper-model-list">
+                <div class="settings-loading">Đang đọc danh sách mô hình…</div>
+              </div>
+              <p class="settings-note">Model lớn chính xác hơn nhưng tải lâu hơn và cần nhiều RAM hơn. Small phù hợp tiếng Việt trên đa số máy.</p>
+            </section>
+
+            <section class="settings-tab-panel" data-settings-panel="services">
+              <h3>Dịch vụ AI</h3>
+              <div class="service-tabs"><button class="active">Gemini</button><button disabled title="Sẽ bổ sung sau">OpenAI</button><button disabled title="Sẽ bổ sung sau">Claude</button></div>
+              <div class="settings-card ai-service-card">
+                <div class="service-status-row"><div><strong>Google Gemini</strong><small id="gemini-service-status">Chưa kết nối</small></div><span class="status-dot" id="gemini-status-dot"></span></div>
+                <div class="settings-divider"></div>
+                <label class="settings-field"><span>API Key</span><div class="api-key-field"><input type="password" id="settings-gemini-key" placeholder="AIzaSy..."><button id="toggle-settings-key" title="Hiện hoặc ẩn API key">Hiện</button><button class="btn-primary-action" id="save-settings-key">Kết nối</button></div></label>
+                <p class="settings-note">API key chỉ được giữ trong bộ nhớ của AI engine và sẽ mất khi bạn tắt engine.</p>
+                <div class="settings-divider"></div>
+                <label class="settings-row"><span><strong>Model Gemini</strong><small>Dùng cho phân đoạn, tóm tắt, metadata và kiểm tra quảng cáo.</small></span><select id="setting-gemini-model"><option value="gemini-3.6-flash">Gemini 3.6 Flash</option><option value="gemini-2.5-flash">Gemini 2.5 Flash</option><option value="gemini-2.5-pro">Gemini 2.5 Pro</option></select></label>
+                <div class="settings-divider"></div>
+                <label class="settings-row"><span><strong>Giới hạn đầu ra</strong><small>Số token tối đa AI có thể trả về.</small></span><span class="settings-number"><input id="setting-max-tokens" type="number" min="1024" max="65536" step="1024" value="8192"><em>token</em></span></label>
+                <div class="settings-divider"></div>
+                <label class="settings-row"><span><strong>Độ dài mỗi lô</strong><small>Số giây bản ghi lời gửi trong mỗi lượt xử lý.</small></span><span class="settings-number"><input id="setting-batch-duration" type="number" min="60" max="3600" step="60" value="600"><em>giây</em></span></label>
+              </div>
+              <div class="privacy-card"><span>♙</span><p>Dữ liệu dùng tính năng Gemini sẽ được gửi tới Google theo chính sách của họ. CreatorUtils không lưu prompt hoặc phản hồi AI vào dịch vụ đám mây riêng.</p></div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div class="workspace-view" id="view-saved-transcripts" style="display: none;">
+        <div class="view-panel-container">
+          <div class="view-header-bar saved-projects-header">
+            <div class="view-header-left">
+              <h2 class="view-title">Bản ghi lời đã lưu</h2>
+              <span class="view-subtitle">Mở lại hoặc xóa các bản ghi lời đã lưu cục bộ trên máy này</span>
+            </div>
+            <div class="view-header-right">
+              <button class="btn-secondary-action" id="btn-refresh-saved-transcripts">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                <span>Làm mới</span>
+              </button>
+              <button class="btn-secondary-action" id="btn-back-from-saved-transcripts">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                <span>Quay lại Chép lời</span>
+              </button>
+            </div>
+          </div>
+          <div class="saved-projects-page-body">
+            <div class="saved-projects-list" id="saved-projects-list"></div>
+            <div class="saved-projects-page-footer">
+              <span class="saved-projects-path">Dữ liệu được lưu bằng SQLite trên máy này.</span>
+            </div>
+          </div>
+        </div>
+      </div>

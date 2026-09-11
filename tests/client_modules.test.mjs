@@ -5,6 +5,8 @@ import { ClientTimelineExporter } from '../src/exporter_client.js';
 import { VideoImporter } from '../src/video_importer.js';
 import { EditDecisionList } from '../src/edit_decision.js';
 import { translations } from '../src/i18n.js';
+import { ApiClient } from '../src/api_client.js';
+import { TimelineExportService } from '../src/features/export/timeline_export_service.js';
 
 test('matcher dùng transcript để chọn clip liên quan', () => {
   const matcher = new ClientBrollMatcher({
@@ -110,4 +112,42 @@ test('i18n Việt và Anh có cùng tập khóa', () => {
   assert.deepEqual(Object.keys(translations.vi).sort(), Object.keys(translations.en).sort());
   assert.equal(translations.en.settings, 'Settings');
   assert.equal(translations.vi.transcript, 'Bản ghi lời');
+});
+
+test('API client gửi export contract tới canonical backend exporter', async () => {
+  const client = new ApiClient('http://127.0.0.1:8765');
+  let captured;
+  client.request = async (path, options) => {
+    captured = { path, options };
+    return { content: '<fcpxml/>', filename: 'test.fcpxml' };
+  };
+  const result = await client.exportTimeline({ format: 'fcpxml', totalDurationSec: 10 });
+  assert.equal(captured.path, '/api/export');
+  assert.equal(captured.options.method, 'POST');
+  assert.deepEqual(JSON.parse(captured.options.body), { format: 'fcpxml', totalDurationSec: 10 });
+  assert.equal(result.filename, 'test.fcpxml');
+});
+
+test('TimelineExportService validate response và tải file XML', async () => {
+  const downloads = [];
+  const service = new TimelineExportService({
+    exportTimeline: async payload => ({ filename: `${payload.format}.xml`, content: '<xml/>' })
+  }, (...args) => downloads.push(args));
+  const result = await service.export('premiere', {
+    name: 'Demo', arollName: 'main.mp4', totalDurationSec: 10, placements: [], cuts: []
+  });
+  assert.equal(result.filename, 'premiere.xml');
+  assert.deepEqual(downloads, [['premiere.xml', '<xml/>', 'application/xml']]);
+});
+
+test('TimelineExportService dùng cùng backend serializer cho preview mà không tải file', async () => {
+  const downloads = [];
+  const service = new TimelineExportService({
+    exportTimeline: async payload => ({ filename: `${payload.format}.fcpxml`, content: '<fcpxml/>' })
+  }, (...args) => downloads.push(args));
+  const result = await service.serialize('fcpxml', {
+    name: 'Preview', arollName: 'main.mp4', totalDurationSec: 12, placements: [], cuts: []
+  });
+  assert.equal(result.content, '<fcpxml/>');
+  assert.deepEqual(downloads, []);
 });

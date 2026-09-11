@@ -71,5 +71,30 @@ class TestXMLExporter(unittest.TestCase):
         self.assertEqual(len(clips), 2)
         self.assertEqual(assets[0].attrib["name"], "camera & dock.mp4")
 
+    def test_export_applies_aroll_cuts_and_broll_source_range(self):
+        placement = {
+            "clip_id": "B001", "clip_name": "detail.mov",
+            "start_sec": 10, "end_sec": 13, "duration_sec": 3,
+            "source_in_sec": 4, "source_out_sec": 7, "source_duration_sec": 20,
+        }
+        cuts = [{"startSec": 5, "endSec": 8}]
+        fcpxml = ET.fromstring(self.exporter.export_fcpxml("main.mov", 15, [placement], cuts))
+        sequence = fcpxml.find(".//sequence")
+        self.assertEqual(sequence.attrib["duration"], "360/30s")
+        broll = fcpxml.find(".//asset-clip[@ref='r_broll_B001']")
+        self.assertEqual(broll.attrib["offset"], "210/30s")
+        self.assertEqual(broll.attrib["start"], "120/30s")
+
+        premiere = ET.fromstring(self.exporter.export_premiere_xml("main.mov", 15, [placement], cuts))
+        clip = premiere.find(".//clipitem[@id='clipitem-broll-1']")
+        self.assertEqual(clip.find("start").text, "210")
+        self.assertEqual(clip.find("in").text, "120")
+        self.assertEqual(clip.find("out").text, "210")
+
+    def test_ntsc_frame_duration_is_rational(self):
+        exporter = TimelineXMLExporter(fps=29.97)
+        root = ET.fromstring(exporter.export_fcpxml("main.mov", 1, []))
+        self.assertEqual(root.find(".//format").attrib["frameDuration"], "1001/30000s")
+
 if __name__ == "__main__":
     unittest.main()

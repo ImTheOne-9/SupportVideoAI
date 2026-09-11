@@ -179,6 +179,14 @@ export class ApiClient {
     });
   }
 
+  exportTimeline(payload) {
+    return this.request('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }
+
   saveProject(project) {
     return this.request('/api/projects', {
       method: 'POST',

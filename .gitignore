@@ -3,6 +3,10 @@ node_modules/
 
 # Build output
 dist/
+release/
+desktop/engine-build/
+desktop/engine-dist/
+desktop/*.spec
 
 # Python cache
 __pycache__/

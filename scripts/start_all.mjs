@@ -1,8 +1,7 @@
 import { spawn } from 'node:child_process';
+import { formatPortError, isCreatorUtilsApiRunning, isPortAvailable } from './runtime_preflight.mjs';
+import { pythonExecutable } from './python_runtime.mjs';
 
-const isWindows = process.platform === 'win32';
-const npmCommand = isWindows ? (process.env.ComSpec || 'cmd.exe') : 'npm';
-const npmArgs = isWindows ? ['/d', '/s', '/c', 'npm run dev'] : ['run', 'dev'];
 const children = [];
 let stopping = false;
 
@@ -37,7 +36,26 @@ function stop(code = 0) {
 process.on('SIGINT', () => stop(0));
 process.on('SIGTERM', () => stop(0));
 
-start('API', 'python', ['-m', 'engine.api_server']);
-start('WEB', npmCommand, npmArgs);
+async function main() {
+  if (!await isPortAvailable(5173)) {
+    console.error(formatPortError(5173));
+    process.exitCode = 1;
+    return;
+  }
 
-console.log('CreatorUtils đang khởi động. Mở http://127.0.0.1:5173');
+  const apiAlreadyRunning = await isCreatorUtilsApiRunning();
+  if (apiAlreadyRunning) {
+    console.log('[API] Đang dùng lại CreatorUtils AI engine tại http://127.0.0.1:8765');
+  } else if (!await isPortAvailable(8765)) {
+    console.error(formatPortError(8765));
+    process.exitCode = 1;
+    return;
+  } else {
+    start('API', pythonExecutable(), ['-m', 'engine.api_server']);
+  }
+
+  start('WEB', process.execPath, ['node_modules/vite/bin/vite.js', '--port', '5173', '--host', '--strictPort']);
+  console.log('CreatorUtils đang khởi động. Mở http://127.0.0.1:5173');
+}
+
+await main();

@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+SCHEMA_VERSION = 1
+
 
 def default_data_dir() -> Path:
     override = os.environ.get("CREATORUTILS_DATA_DIR")
@@ -34,6 +36,8 @@ class ProjectStore:
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path, timeout=15)
         connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA busy_timeout = 15000")
         return connection
 
     @contextmanager
@@ -50,6 +54,11 @@ class ProjectStore:
 
     def _initialize(self) -> None:
         with self._session() as connection:
+            current_version = connection.execute("PRAGMA user_version").fetchone()[0]
+            if current_version > SCHEMA_VERSION:
+                raise RuntimeError(
+                    f"Database schema {current_version} mới hơn engine hỗ trợ ({SCHEMA_VERSION})."
+                )
             connection.execute("""
                 CREATE TABLE IF NOT EXISTS projects (
                     id TEXT PRIMARY KEY,
@@ -92,6 +101,8 @@ class ProjectStore:
                 )
             """)
             connection.execute("CREATE INDEX IF NOT EXISTS idx_broll_scenes_clip ON broll_scenes(clip_id)")
+            if current_version == 0:
+                connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
     def get_settings(self) -> dict[str, Any]:
         with self._session() as connection:
@@ -143,7 +154,6 @@ class ProjectStore:
             return {"cached": True, "scenes": existing}
         now = datetime.now(timezone.utc).isoformat()
         with self._session() as connection:
-            connection.execute("PRAGMA foreign_keys = ON")
             connection.execute("DELETE FROM broll_clips WHERE id = ?", (clip_id,))
             connection.execute("""
                 INSERT INTO broll_clips (id, fingerprint, name, duration_sec, aspect_ratio, updated_at)
@@ -162,7 +172,6 @@ class ProjectStore:
 
     def delete_broll_index(self, clip_id: str) -> bool:
         with self._session() as connection:
-            connection.execute("PRAGMA foreign_keys = ON")
             cursor = connection.execute("DELETE FROM broll_clips WHERE id = ?", (clip_id,))
         return cursor.rowcount > 0
 
