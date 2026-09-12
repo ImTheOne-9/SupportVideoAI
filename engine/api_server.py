@@ -261,13 +261,15 @@ class ApiHandler(BaseHTTPRequestHandler):
             extension = "bat"
         else:
             exporter = TimelineXMLExporter(project_name, fps, width, height)
-            if export_format == "fcpxml":
-                content = exporter.export_fcpxml(aroll_name, total_duration, placements, cuts)
-                extension = "fcpxml"
-            else:
-                content = exporter.export_premiere_xml(aroll_name, total_duration, placements, cuts)
+            if export_format == "premiere":
+                content = exporter.generate_premiere_xml(placements, aroll_name, total_duration, cuts)
                 extension = "xml"
-
+            elif export_format == "davinci":
+                content = exporter.generate_davinci_xml(placements, aroll_name, total_duration, cuts)
+                extension = "xml"
+            else:
+                content = exporter.generate_fcpxml(placements, aroll_name, total_duration, cuts)
+                extension = "fcpxml"
         self._json(200, {
             "content": content,
             "filename": f"{safe_name}_{export_format}.{extension}",
