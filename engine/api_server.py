@@ -33,6 +33,7 @@ from engine.services.content_service import ContentService
 from engine.services.gemini_service import GeminiService
 from engine.services.whisper_service import WhisperService
 from engine.xml_exporter import TimelineXMLExporter
+from engine.mp4_exporter import MP4Exporter
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -236,7 +237,7 @@ class ApiHandler(BaseHTTPRequestHandler):
     def _export_timeline(self) -> None:
         data = self._read_json()
         export_format = str(data.get("format", "fcpxml")).lower()
-        if export_format not in {"fcpxml", "premiere", "davinci"}:
+        if export_format not in {"fcpxml", "premiere", "davinci", "ffmpeg"}:
             raise ValueError("Định dạng timeline không được hỗ trợ.")
         total_duration = float(data.get("totalDurationSec", 0) or 0)
         if total_duration <= 0:
@@ -252,14 +253,23 @@ class ApiHandler(BaseHTTPRequestHandler):
         cuts = data.get("cuts") or []
         if not isinstance(placements, list) or not isinstance(cuts, list):
             raise ValueError("Placements và cuts phải là danh sách.")
-        exporter = TimelineXMLExporter(project_name, fps, width, height)
-        if export_format == "fcpxml":
-            content = exporter.export_fcpxml(aroll_name, total_duration, placements, cuts)
-            extension = "fcpxml"
-        else:
-            content = exporter.export_premiere_xml(aroll_name, total_duration, placements, cuts)
-            extension = "xml"
         safe_name = re.sub(r"[^\w.-]+", "_", project_name, flags=re.UNICODE).strip("._") or "CreatorUtils_Project"
+
+        if export_format == "ffmpeg":
+            exporter = MP4Exporter(project_name, width, height)
+            content = exporter.generate_bat_script(aroll_name, total_duration, placements, cuts)
+            extension = "bat"
+        else:
+            exporter = TimelineXMLExporter(project_name, fps, width, height)
+            if export_format == "premiere":
+                content = exporter.generate_premiere_xml(placements, aroll_name, total_duration, cuts)
+                extension = "xml"
+            elif export_format == "davinci":
+                content = exporter.generate_davinci_xml(placements, aroll_name, total_duration, cuts)
+                extension = "xml"
+            else:
+                content = exporter.generate_fcpxml(placements, aroll_name, total_duration, cuts)
+                extension = "fcpxml"
         self._json(200, {
             "content": content,
             "filename": f"{safe_name}_{export_format}.{extension}",

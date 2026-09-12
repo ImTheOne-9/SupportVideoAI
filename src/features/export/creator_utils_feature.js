@@ -9,6 +9,8 @@ export const exportFeature = {
       placements: this.matchedPositions,
       cuts: this.silenceCuts,
       fps: 30,
+      width: this.activeArollFile?.width,
+      height: this.activeArollFile?.height
     };
   },
   async canonicalXml() {
@@ -69,6 +71,15 @@ export const exportFeature = {
       await this.timelineExportService.export("fcpxml", { name: this.currentProjectName, arollName: t, totalDurationSec: this.totalDurationSec, placements: this.matchedPositions, cuts: this.silenceCuts, fps: 30 });
     } catch (e) {
       alert(`Không thể xuất FCPXML: ${e.message}`);
+    }
+  },
+  async exportMP4() {
+    var i;
+    const t = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov";
+    try {
+      await this.timelineExportService.export("ffmpeg", { name: this.currentProjectName, arollName: t, totalDurationSec: this.totalDurationSec, placements: this.matchedPositions, cuts: this.silenceCuts, fps: 30 });
+    } catch (e) {
+      alert(`Không thể xuất MP4 script: ${e.message}`);
     }
   },
   async exportPremiereXML() {
