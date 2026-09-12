@@ -1,0 +1,115 @@
+      <!-- VIEW 5: XUẤT (EXPORT DASHBOARD) -->
+      <div class="workspace-view" id="view-export" style="display: none;">
+        <div class="view-panel-container">
+          <div class="view-header-bar">
+            <div class="view-header-left">
+              <h2 class="view-title">Trung tâm xuất dự án (Export Dashboard)</h2>
+              <span class="view-subtitle">Xuất timeline đa tầng hoàn chỉnh sang các phần mềm dựng phim chuyên nghiệp</span>
+            </div>
+            <div class="view-header-right">
+              <button class="btn-secondary-action" id="btn-back-to-broll">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                <span>Quay lại B-Roll</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="export-dashboard-body">
+            <!-- Summary Banner -->
+            <div class="project-summary-banner">
+              <div class="banner-left">
+                <div class="banner-thumb-empty" id="export-banner-thumb-empty" style="width: 64px; height: 42px; border-radius: 6px; background: #25252a; border: 1px dashed var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--text-sub); flex-shrink: 0;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                </div>
+                <img src="" alt="A-roll" class="banner-thumb" id="export-banner-thumb" style="display: none;">
+                <div class="banner-info">
+                  <h3 class="banner-project-title" id="export-proj-title">Dự án mới</h3>
+                  <div class="banner-tags-row">
+                    <span class="badge-pill badge-purple" id="export-stat-broll-count">0 Clip B-Roll đã ghép</span>
+                    <span class="badge-pill badge-green" id="export-stat-coverage" style="display:none;">0% Tỷ lệ phủ</span>
+                    <span class="badge-pill badge-blue" id="export-stat-duration">Thời lượng: 00:00</span>
+                    <span class="badge-pill badge-gray" id="export-stat-resolution">-- x --</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Export Cards 4 items -->
+            <div class="export-options-grid">
+              <div class="export-tile">
+                <div class="export-tile-badge">Khuyên dùng cho Mac</div>
+                <div class="export-tile-icon apple-icon">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.92-2.85-.9.04-2 .6-2.64 1.35-.56.65-1.05 1.71-0.92 2.73 1.01.08 2.03-.51 2.64-1.23z"/></svg>
+                </div>
+                <h3 class="export-tile-title">Final Cut Pro X (.fcpxml)</h3>
+                <p class="export-tile-desc">Phiên bản FCPXML 1.9 tiêu chuẩn. Giữ nguyên 2 track video độc lập, 1 track audio gốc, kèm các marker đánh dấu vị trí B-Roll thông minh.</p>
+                <button class="btn-tile-download" id="btn-export-fcpxml-dash">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Tải về .fcpxml</span>
+                </button>
+              </div>
+
+              <div class="export-tile">
+                <div class="export-tile-badge">Xuất video trực tiếp</div>
+                <div class="export-tile-icon apple-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 8.452V15.548C22 17.514 20.353 19.117 18.318 19.117H5.682C3.647 19.117 2 17.514 2 15.548V8.452C2 6.486 3.647 4.883 5.682 4.883H18.318C20.353 4.883 22 6.486 22 8.452Z"/><path d="M10 15V9L15 12L10 15Z"/></svg>
+                </div>
+                <h3 class="export-tile-title">Xuất Video (.mp4)</h3>
+                <p class="export-tile-desc">Tải script FFmpeg (.bat) để tự động render video thành phẩm hoàn chỉnh với tất cả B-Roll đã ghép.</p>
+                <button class="btn-tile-download" id="btn-export-mp4-dash">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Tải Script MP4 (.bat)</span>
+                </button>
+              </div>
+
+              <div class="export-tile">
+                <div class="export-tile-badge">Phổ biến nhất Windows & Mac</div>
+                <div class="export-tile-icon premiere-icon">
+                  <span style="font-weight: 800; font-size: 16px;">Pr</span>
+                </div>
+                <h3 class="export-tile-title">Adobe Premiere Pro (.xml)</h3>
+                <p class="export-tile-desc">Chuẩn FCP7 XML xmeml tương thích 100% Premiere Pro CC 2020 - 2026. Hỗ trợ import trực tiếp không cần cài thêm plugin.</p>
+                <button class="btn-tile-download" id="btn-export-premiere-dash">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Tải về Premiere XML</span>
+                </button>
+              </div>
+
+              <div class="export-tile">
+                <div class="export-tile-badge">Chỉnh màu điện ảnh</div>
+                <div class="export-tile-icon davinci-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 10 10 0 0 0 0-20"/></svg>
+                </div>
+                <h3 class="export-tile-title">DaVinci Resolve (.xml)</h3>
+                <p class="export-tile-desc">Xuất sequence đa tầng tương thích DaVinci Resolve 18/19 để thực hiện chỉnh màu (color grading) và hiệu ứng VFX cao cấp.</p>
+                <button class="btn-tile-download" id="btn-export-davinci-dash">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Tải về Resolve XML</span>
+                </button>
+              </div>
+
+              <div class="export-tile">
+                <div class="export-tile-badge">Lưu trữ & Phụ đề</div>
+                <div class="export-tile-icon srt-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <h3 class="export-tile-title">Phụ đề & Metadata (.srt / .json)</h3>
+                <p class="export-tile-desc">Xuất file phụ đề chuẩn SubRip (.srt) từ bản ghi lời nói kèm toàn bộ dữ liệu vị trí B-Roll dưới dạng JSON.</p>
+                <button class="btn-tile-download" id="btn-export-srt-dash">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Tải về Phụ đề (.srt)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Live XML Preview Box -->
+            <div class="export-preview-card">
+              <div class="export-preview-header">
+                <span>Xem trước cấu trúc mã XML xuất:</span>
+                <button class="btn-action-pill" id="btn-copy-xml-code">Sao chép mã XML</button>
+              </div>
+              <pre class="xml-preview-box" id="dash-xml-preview-code"></pre>
+            </div>
+          </div>
+        </div>
+      </div>

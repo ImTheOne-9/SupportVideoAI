@@ -1,0 +1,78 @@
+      <!-- AI SUMMARY PAGE -->
+      <div class="workspace-view" id="view-summary" style="display: none;">
+        <div class="workflow-prerequisite-empty summary-prerequisite" data-requires-transcript hidden>
+          <div class="workflow-prerequisite-card">
+            <div class="workflow-prerequisite-icon">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
+            </div>
+            <strong>Chưa có bản ghi lời</strong>
+            <span>Hãy chép lời video hoặc nhập file SRT trước khi tạo bản tóm tắt.</span>
+            <button class="btn-primary-action btn-go-transcript-empty">Đi tới trang Chép lời</button>
+          </div>
+        </div>
+
+        <div class="view-panel-container">
+          <div class="view-header-bar summary-header">
+            <div class="view-header-left">
+              <h2 class="view-title">Tự động tóm tắt</h2>
+              <span class="view-subtitle">Biến bản ghi lời thành nội dung cô đọng bằng Gemini</span>
+            </div>
+            <div class="view-header-right">
+              <span class="summary-model-badge">✦ Gemini · gemini-3.6-flash</span>
+              <button class="btn-primary-action" id="btn-generate-summary">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>
+                <span>Tạo tóm tắt</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="summary-page-scroll">
+            <section class="summary-settings-card">
+              <div class="summary-section-label">Kiểu kết quả</div>
+              <div class="summary-segmented-control" data-summary-group="type">
+                <button class="active" data-value="brief">Tóm tắt ngắn</button>
+                <button data-value="key-points">Ý chính</button>
+                <button data-value="action-items">Việc cần làm</button>
+              </div>
+
+              <div class="summary-settings-divider"></div>
+              <div class="summary-section-label">Ngôn ngữ đầu ra</div>
+              <div class="summary-segmented-control" data-summary-group="language">
+                <button class="active" data-value="auto">Tự động nhận diện</button>
+                <button data-value="vi">Tiếng Việt</button>
+                <button data-value="en">English</button>
+              </div>
+
+              <div class="summary-settings-divider"></div>
+              <div class="summary-section-label">Giọng văn</div>
+              <div class="summary-tone-grid" data-summary-group="tone">
+                <button data-value="neutral"><span>○</span>Trung lập</button>
+                <button class="active" data-value="professional"><span>▣</span>Chuyên nghiệp</button>
+                <button data-value="casual"><span>☻</span>Gần gũi</button>
+                <button data-value="engaging"><span>☆</span>Cuốn hút</button>
+                <button data-value="educational"><span>▤</span>Giáo dục</button>
+                <button data-value="dramatic"><span>♨</span>Kịch tính</button>
+                <button data-value="custom"><span>⌁</span>Tùy chỉnh</button>
+              </div>
+              <div class="summary-custom-tone" id="summary-custom-tone-wrap" hidden>
+                <label for="summary-custom-tone">Mô tả giọng văn bạn muốn</label>
+                <textarea id="summary-custom-tone" class="custom-textarea" placeholder="Ví dụ: ngắn gọn, thuyết phục, phù hợp video TikTok..."></textarea>
+              </div>
+            </section>
+
+            <section class="summary-result-card">
+              <div class="summary-result-header">
+                <div class="summary-result-title">
+                  <span class="summary-status-icon" id="summary-status-icon">✦</span>
+                  <strong id="summary-result-title">Bản tóm tắt</strong>
+                  <span id="summary-result-meta">Gemini</span>
+                </div>
+                <button class="btn-secondary-action" id="btn-copy-summary" disabled>Sao chép</button>
+              </div>
+              <div class="summary-result-content empty" id="summary-result-content">
+                Chọn thiết lập phía trên rồi nhấn “Tạo tóm tắt”.
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>

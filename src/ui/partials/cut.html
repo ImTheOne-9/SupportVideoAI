@@ -1,0 +1,113 @@
+      <!-- VIEW 2: CẮT THÔ (SILENCE & FILLER CUTTER) -->
+      <div class="workspace-view" id="view-cut" style="display: none;">
+        <div class="workflow-prerequisite-empty" data-requires-aroll hidden>
+          <div class="workflow-prerequisite-card">
+            <div class="workflow-prerequisite-icon">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.1" y2="15.9"/><line x1="14.5" y1="14.5" x2="20" y2="20"/><line x1="8.1" y1="8.1" x2="12" y2="12"/></svg>
+            </div>
+            <strong>Chưa có video A-Roll</strong>
+            <span>Hãy nạp video ở trang Chép lời trước khi bắt đầu cắt.</span>
+            <button class="btn-primary-action btn-go-transcript-empty">Đi tới trang Chép lời</button>
+          </div>
+        </div>
+        <div class="view-panel-container">
+          <div class="view-header-bar">
+            <div class="view-header-left">
+              <h2 class="view-title">Cắt thô thông minh (Silence & Rough Cut)</h2>
+              <span class="view-subtitle">Phân tích biên độ âm thanh bằng Web Audio API và tạo danh sách khoảng lặng cần cắt</span>
+            </div>
+            <div class="view-header-right">
+              <div class="badge-pill badge-green" id="badge-cut-savings">
+                <span>Tiết kiệm: ~10.8 giây (7% thời lượng)</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="view-content-split">
+            <div class="view-side-card">
+              <div class="cutter-controls-box">
+                <div class="control-row">
+                  <div class="control-label-row">
+                    <span>Khoảng lặng tối thiểu</span>
+                    <span class="control-val" id="label-silence-thresh">0.6s</span>
+                  </div>
+                  <input type="range" class="custom-range" id="slider-silence-thresh" min="0.3" max="2.0" step="0.1" value="0.6">
+                  <span class="control-hint">Bất kỳ khoảng lặng kéo dài hơn ngưỡng này sẽ được đánh dấu để cắt.</span>
+                </div>
+
+                <div class="control-row">
+                  <div class="control-label-row">
+                    <span>Đệm an toàn trước / sau</span>
+                    <span class="control-val" id="label-padding-thresh">0.15s</span>
+                  </div>
+                  <input type="range" class="custom-range" id="slider-padding-thresh" min="0.05" max="0.3" step="0.05" value="0.15">
+                  <span class="control-hint">Giữ lại một chút đệm để câu nói không bị cụt âm thanh.</span>
+                </div>
+
+                <div class="checkbox-row" style="margin-top: 8px;">
+                  <input type="checkbox" id="chk-detect-fillers" checked>
+                  <label for="chk-detect-fillers">Phát hiện từ đệm ('ờ', 'à', 'ừm', 'thì là')</label>
+                </div>
+
+                <button class="btn-rematch" id="btn-execute-auto-cut" style="margin-top: 14px; width: 100%; height: 38px; font-size: 13px;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <span>Xác nhận danh sách cắt</span>
+                </button>
+
+                <button class="btn-secondary-action" id="btn-reset-all-cuts" style="width: 100%; height: 34px; margin-top: 6px; justify-content: center;">
+                  <span>Khôi phục video nguyên bản</span>
+                </button>
+              </div>
+
+              <div class="info-card-group" style="margin-top: 12px;">
+                <div class="info-metric-item">
+                  <span class="metric-label">Số đoạn khoảng lặng</span>
+                  <span class="metric-val" id="metric-silence-count">9 đoạn (8.7s)</span>
+                </div>
+                <div class="info-metric-item">
+                  <span class="metric-label">Số từ đệm phát hiện</span>
+                  <span class="metric-val" id="metric-filler-count">3 từ (1.7s)</span>
+                </div>
+                <div class="info-metric-item">
+                  <span class="metric-label">Thời lượng trước cắt</span>
+                  <span class="metric-val" id="metric-dur-before">02:41</span>
+                </div>
+                <div class="info-metric-item">
+                  <span class="metric-label">Thời lượng sau cắt ước tính</span>
+                  <span class="metric-val text-green" id="metric-dur-after">02:30</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="view-main-card">
+              <div class="cut-visualizer-container">
+                <div class="cut-visualizer-header">
+                  <span>Sơ đồ phân bổ các vị trí cắt trên Timeline</span>
+                  <span class="text-sub" id="cut-status-summary">12 đoạn được chọn để cắt</span>
+                </div>
+                <div class="cut-timeline-strip" id="cut-timeline-strip">
+                  <!-- Rendered dynamically -->
+                </div>
+              </div>
+
+              <div class="cutter-table-wrapper">
+                <table class="cutter-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 40px;"><input type="checkbox" id="chk-toggle-all-cuts" checked></th>
+                      <th style="width: 140px;">Loại</th>
+                      <th style="width: 150px;">Mốc thời gian</th>
+                      <th style="width: 100px;">Độ dài</th>
+                      <th>Mô tả ngữ cảnh</th>
+                      <th style="width: 110px; text-align: right;">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cutter-table-body">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>

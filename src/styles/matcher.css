@@ -1,0 +1,321 @@
+/* ==========================================================================
+   6. RIGHT SIDEBAR: B-ROLL MATCHING PANEL & 50 PLACEMENT LIST
+   ========================================================================== */
+.sidebar-matcher-panel {
+  width: 380px;
+  background-color: var(--bg-panel-right);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.matcher-panel-header {
+  height: 44px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.panel-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.matcher-scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-intro-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Prompt Box 1: Describe Footage */
+.prompt-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.prompt-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.prompt-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.gemini-model-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  background: #19191d;
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #a476ed;
+}
+
+.custom-textarea {
+  width: 100%;
+  background: #141417;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+  color: var(--text-main);
+  font-size: 11px;
+  line-height: 1.4;
+  resize: vertical;
+  min-height: 52px;
+  outline: none;
+  font-family: inherit;
+}
+
+.custom-textarea:focus {
+  border-color: var(--color-primary);
+}
+
+/* Sliders Control Section */
+.sliders-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #18181b;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.slider-value-pill {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  color: var(--text-main);
+  font-weight: 600;
+}
+
+.slider-input {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: #2c2c32;
+  accent-color: var(--color-primary);
+  outline: none;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-main);
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.checkbox-row input {
+  accent-color: var(--color-primary);
+}
+
+/* Action Button: "Ghép lại" */
+.btn-rematch {
+  width: 100%;
+  background-color: var(--color-primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.05s;
+  box-shadow: 0 2px 6px rgba(10, 132, 255, 0.3);
+}
+
+.btn-rematch:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-rematch:active {
+  transform: scale(0.99);
+}
+
+.btn-rematch.loading svg {
+  animation: spin 1s linear infinite;
+}
+
+/* 50 Matched Positions List */
+.matched-list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.matched-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.matched-count-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.btn-link-action {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.btn-link-action:hover {
+  text-decoration: underline;
+}
+
+.matched-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.matched-card-item {
+  background: #25252a;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.matched-card-item:hover {
+  border-color: #44444c;
+  background: #2b2b32;
+}
+
+.matched-card-item.active-playing {
+  border-color: var(--color-purple-light);
+  background: #2e283b;
+}
+
+.matched-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.matched-clip-time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-clip-id {
+  background: #1b1b20;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.time-range-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: ui-monospace, monospace;
+}
+
+.match-percentage-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-green);
+}
+
+.matched-description-text {
+  font-size: 11px;
+  color: #d1d1d6;
+  line-height: 1.35;
+}
+.matched-source-info { margin-top: 5px; color: #75baff; font-size: 9.5px; line-height: 1.35; }
+
+.matched-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.card-action-icons {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-tool-mini {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.icon-tool-mini:hover {
+  color: #fff;
+}
+
+.icon-tool-mini.delete:hover {
+  color: var(--color-red);
+}

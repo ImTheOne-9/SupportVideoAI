@@ -1,0 +1,78 @@
+      <!-- AI AD COMPLIANCE PAGE -->
+      <div class="workspace-view" id="view-ad-check" style="display: none;">
+        <div class="workflow-prerequisite-empty" data-requires-transcript hidden>
+          <div class="workflow-prerequisite-card">
+            <div class="workflow-prerequisite-icon">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>
+            </div>
+            <strong>Chưa có bản ghi lời</strong>
+            <span>Hãy chép lời video hoặc nhập file SRT trước khi rà soát nội dung quảng cáo.</span>
+            <button class="btn-primary-action btn-go-transcript-empty">Đi tới trang Chép lời</button>
+          </div>
+        </div>
+
+        <div class="view-panel-container">
+          <div class="view-header-bar ad-check-header">
+            <div class="view-header-left">
+              <h2 class="view-title">Kiểm tra quảng cáo</h2>
+              <span class="view-subtitle">AI rà soát các dấu hiệu rủi ro trong nội dung trước khi xuất bản</span>
+            </div>
+            <div class="view-header-right">
+              <span class="summary-model-badge">✦ Gemini · gemini-3.6-flash</span>
+              <button class="btn-primary-action" id="btn-run-ad-check">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg>
+                <span>Rà soát nội dung</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="ad-check-page-scroll">
+            <section class="ad-check-intro-card">
+              <div>
+                <h3>Rà soát rủi ro quảng cáo</h3>
+                <p>Phân tích bản ghi lời để tìm nội dung cần khai báo, nhãn hàng hoặc nhà tài trợ, nội dung sức khỏe, lời khẳng định quá mức và thông tin khuyến mại.</p>
+              </div>
+              <div class="ad-check-settings">
+                <label>Phạm vi</label>
+                <select id="ad-check-jurisdiction" class="speed-select">
+                  <option value="vietnam">Việt Nam</option>
+                </select>
+                <label>Mức rà soát</label>
+                <select id="ad-check-strictness" class="speed-select">
+                  <option value="balanced">Cân bằng</option>
+                  <option value="strict">Nghiêm ngặt</option>
+                </select>
+              </div>
+            </section>
+
+            <section class="ad-check-progress" id="ad-check-progress">
+              <div data-stage="scan"><span>1</span><strong>Quét câu thoại</strong></div>
+              <i></i>
+              <div data-stage="aggregate"><span>2</span><strong>Tổng hợp rủi ro</strong></div>
+              <i></i>
+              <div data-stage="report"><span>3</span><strong>Tạo báo cáo</strong></div>
+            </section>
+
+            <section class="ad-report-section">
+              <div class="ad-report-heading">
+                <div class="summary-result-title">
+                  <span class="summary-status-icon" id="ad-report-status-icon">✦</span>
+                  <strong id="ad-report-title">Báo cáo kiểm tra</strong>
+                  <span id="ad-report-meta">Gemini</span>
+                </div>
+                <div class="metadata-global-actions">
+                  <button class="btn-secondary-action" id="btn-copy-ad-report" disabled>Sao chép báo cáo</button>
+                  <button class="btn-secondary-action" id="btn-rerun-ad-check" disabled>Kiểm tra lại</button>
+                </div>
+              </div>
+              <div class="ad-report-summary empty" id="ad-report-summary">Nhấn “Rà soát nội dung” để bắt đầu.</div>
+              <div class="ad-findings-list" id="ad-findings-list"></div>
+              <div class="ad-recommendations" id="ad-recommendations" hidden>
+                <h3>💡 Khuyến nghị</h3>
+                <ol id="ad-recommendations-list"></ol>
+              </div>
+              <p class="ad-legal-note">Kết quả do AI hỗ trợ rà soát, chỉ mang tính tham khảo và không thay thế tư vấn pháp lý hoặc đánh giá của nền tảng quảng cáo.</p>
+            </section>
+          </div>
+        </div>
+      </div>

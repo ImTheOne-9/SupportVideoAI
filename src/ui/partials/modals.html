@@ -1,0 +1,80 @@
+  <!-- 7. EXPORT MODAL (Final Cut Pro XML, Premiere XML, DaVinci Resolve) -->
+  <div class="modal-backdrop" id="export-modal" role="dialog" aria-modal="true">
+    <div class="modal-window">
+      <div class="modal-header">
+        <span class="modal-title">Xuất Timeline Dựng Phim (NLE Export)</span>
+        <button class="icon-btn-ghost" id="btn-close-modal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 12px; color: var(--text-muted);">
+          Toàn bộ các clip B-roll màu tím đã khớp sẽ được xếp chuẩn xác lên Track 2 cùng mốc thời gian và điểm In/Out.
+        </p>
+
+        <div class="export-options-grid">
+          <button class="export-card-btn" id="btn-export-fcpxml">
+            <span class="export-card-icon">🍏</span>
+            <div>
+              <div class="export-card-title">Final Cut Pro (.fcpxml)</div>
+              <div class="export-card-desc">Tương thích Apple Final Cut Pro 10.4+ và DaVinci Resolve</div>
+            </div>
+          </button>
+
+          <button class="export-card-btn" id="btn-export-premiere">
+            <span class="export-card-icon">🎬</span>
+            <div>
+              <div class="export-card-title">Adobe Premiere Pro (.xml)</div>
+              <div class="export-card-desc">Chuẩn FCP7 XML xmeml v4 cho Premiere Pro & After Effects</div>
+            </div>
+          </button>
+
+          <button class="export-card-btn" id="btn-export-davinci">
+            <span class="export-card-icon">🎨</span>
+            <div>
+              <div class="export-card-title">DaVinci Resolve Project</div>
+              <div class="export-card-desc">Xuất sequence đa tầng tương thích Resolve 18/19</div>
+            </div>
+          </button>
+
+          <button class="export-card-btn" id="btn-export-json">
+            <span class="export-card-icon">📋</span>
+            <div>
+              <div class="export-card-title">Timeline Metadata (JSON)</div>
+              <div class="export-card-desc">Dữ liệu gốc kèm điểm tin cậy và mô tả phân cảnh AI</div>
+            </div>
+          </button>
+        </div>
+
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-main); margin-top: 4px;">Xem trước mã XML xuất:</div>
+        <div class="xml-preview-box" id="xml-preview-code"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-modal-cancel">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. GEMINI API KEY MODAL -->
+  <div class="modal-backdrop" id="api-key-modal" role="dialog" aria-modal="true">
+    <div class="modal-window" style="width: 480px;">
+      <div class="modal-header">
+        <span class="modal-title">Cấu hình Google Gemini Vision API</span>
+        <button class="icon-btn-ghost" id="btn-close-api-modal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 12px; color: var(--text-muted);">
+          Nhập Google Gemini API Key để hệ thống tự động gọi mô hình <strong>Gemini 2.0 Flash</strong> phân tích và gắn nhãn nội dung từng clip B-roll thật của bạn.
+        </p>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <label style="font-size: 11.5px; font-weight: 600;">Gemini API Key:</label>
+          <input type="password" id="input-gemini-key" placeholder="AIzaSy..." class="custom-textarea" style="min-height: 36px; padding: 8px;">
+        </div>
+        <div style="font-size: 11px; color: var(--text-sub);">
+          * API Key chỉ được giữ trong bộ nhớ của AI engine cục bộ và mất khi tắt engine. Bạn cũng có thể đặt biến môi trường GEMINI_API_KEY.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btn-cancel-api-key">Hủy</button>
+        <button class="btn-rematch" id="btn-save-api-key" style="width: auto; padding: 6px 14px;">Lưu Cấu Hình</button>
+      </div>
+    </div>
+  </div>
