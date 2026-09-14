@@ -239,7 +239,25 @@ export class CreatorUtilsApp {
       y && (y.textContent = `${this.silencePadding.toFixed(2)}s`), this.refreshSilenceCuts();
     }), (kt = document.getElementById("chk-detect-fillers")) == null || kt.addEventListener("change", (l) => {
       this.detectFillers = l.target.checked, this.renderCutView();
-    }), (Bt = document.getElementById("btn-execute-auto-cut")) == null || Bt.addEventListener("click", () => this.handleExecuteAutoCut()), (Mt = document.getElementById("btn-reset-all-cuts")) == null || Mt.addEventListener("click", () => this.handleResetAllCuts()), ($t = document.getElementById("chk-toggle-all-cuts")) == null || $t.addEventListener("change", (l) => this.handleToggleAllCuts(l.target.checked)), (Rt = document.getElementById("btn-ai-auto-segment")) == null || Rt.addEventListener("click", () => this.handleAiAutoSegment()), (At = document.getElementById("btn-add-custom-chapter")) == null || At.addEventListener("click", () => this.handleAddCustomChapter()), (jt = document.getElementById("btn-export-fcpxml-dash")) == null || jt.addEventListener("click", () => this.exportFCPXML()), document.getElementById("btn-export-mp4-dash")?.addEventListener("click", () => this.exportMP4()), (Dt = document.getElementById("btn-export-premiere-dash")) == null || Dt.addEventListener("click", () => this.exportPremiereXML()), (Ft = document.getElementById("btn-export-davinci-dash")) == null || Ft.addEventListener("click", () => this.exportDaVinciXML()), (Vt = document.getElementById("btn-export-srt-dash")) == null || Vt.addEventListener("click", () => this.handleExportSrt()), (Ot = document.getElementById("btn-copy-xml-code")) == null || Ot.addEventListener("click", () => this.handleCopyXml()), window.addEventListener("resize", () => {
+    }), (Bt = document.getElementById("btn-execute-auto-cut")) == null || Bt.addEventListener("click", () => this.handleExecuteAutoCut()), (Mt = document.getElementById("btn-reset-all-cuts")) == null || Mt.addEventListener("click", () => this.handleResetAllCuts()), ($t = document.getElementById("chk-toggle-all-cuts")) == null || $t.addEventListener("change", (l) => this.handleToggleAllCuts(l.target.checked)), (Rt = document.getElementById("btn-ai-auto-segment")) == null || Rt.addEventListener("click", () => this.handleAiAutoSegment()), (At = document.getElementById("btn-add-custom-chapter")) == null || At.addEventListener("click", () => this.handleAddCustomChapter()), (jt = document.getElementById("btn-export-fcpxml-dash")) == null || jt.addEventListener("click", () => this.exportFCPXML()), document.getElementById("btn-export-mp4-dash")?.addEventListener("click", () => this.exportMP4()), (Dt = document.getElementById("btn-export-premiere-dash")) == null || Dt.addEventListener("click", () => this.exportPremiereXML()), (Ft = document.getElementById("btn-export-davinci-dash")) == null || Ft.addEventListener("click", () => this.exportDaVinciXML()), (Vt = document.getElementById("btn-export-srt-dash")) == null || Vt.addEventListener("click", () => this.handleExportSrt()), (Ot = document.getElementById("btn-copy-xml-code")) == null || Ot.addEventListener("click", () => this.handleCopyXml()),
+    document.getElementById("btn-browse-export-folder")?.addEventListener("click", () => document.getElementById("input-export-folder")?.click()),
+    document.getElementById("input-export-folder")?.addEventListener("change", (e) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        const path = files[0].path;
+        if (path) {
+           const dirPath = path.substring(0, Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/')));
+           this.exportBaseFolder = dirPath;
+           const folderInput = document.getElementById("export-base-folder");
+           if (folderInput) {
+             folderInput.value = dirPath;
+           }
+        } else {
+           alert("Trình duyệt không hỗ trợ lấy đường dẫn gốc của file. Vui lòng chạy ứng dụng bằng Desktop App (Electron) để sử dụng tính năng Xuất trực tiếp.");
+        }
+      }
+    }),
+    window.addEventListener("resize", () => {
       this.drawWaveform(), this.drawRuler();
     });
   }

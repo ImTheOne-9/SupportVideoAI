@@ -314,37 +314,47 @@ class ApiHandler(BaseHTTPRequestHandler):
 
         try:
             self._stream_event({"type": "start", "message": "Bắt đầu render MP4..."})
-            
-            # Start FFmpeg
-            cwd = base_folder if (base_folder and Path(base_folder).is_dir()) else None
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                cwd=cwd
-            )
-
             time_pattern = re.compile(r"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})")
-            
-            for line in process.stdout:
-                match = time_pattern.search(line)
-                if match:
-                    h, m, s = float(match.group(1)), float(match.group(2)), float(match.group(3))
-                    current_sec = h * 3600 + m * 60 + s
-                    percent = min(99, int((current_sec / total_duration) * 100))
-                    self._stream_event({"type": "progress", "percent": percent, "time": f"{int(h):02}:{int(m):02}:{int(s):02}"})
+            last_lines = []
+            try:
+                cwd = base_folder if (base_folder and Path(base_folder).is_dir()) else None
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    encoding="utf-8",
+                    errors="replace",
+                    cwd=cwd
+                )
 
-            process.wait()
-            if process.returncode == 0:
+                for line in iter(process.stdout.readline, ''):
+                    last_lines.append(line.strip())
+                    if len(last_lines) > 5:
+                        last_lines.pop(0)
+                        
+                    match = time_pattern.search(line)
+                    if match:
+                        h, m, s = match.groups()
+                        current_sec = int(h) * 3600 + int(m) * 60 + float(s)
+                        percent = min(100, int((current_sec / total_duration) * 100)) if total_duration > 0 else 0
+                        self._stream_event({"type": "progress", "percent": percent})
+                        
+                process.stdout.close()
+                process.wait()
+                
+                if process.returncode != 0:
+                    error_details = " | ".join(last_lines)
+                    dir_info = cwd if cwd else "Chưa thiết lập"
+                    self._stream_event({"type": "error", "error": f"FFmpeg render thất bại (Tại: {dir_info}). Chi tiết: {error_details}"})
+                    return
+                    
                 self._stream_event({"type": "done", "file": output_file})
-            else:
-                self._stream_event({"type": "error", "error": "FFmpeg render thất bại. Hãy kiểm tra file nguồn."})
-        except (BrokenPipeError, ConnectionResetError):
-            if 'process' in locals() and process.poll() is None:
-                process.terminate()
+            except Exception as e:
+                self._stream_event({"type": "error", "error": f"Lỗi thực thi FFmpeg: {str(e)}"})
+                if 'process' in locals() and process.poll() is None:
+                    process.terminate()
         except Exception as exc:
             self._stream_event({"type": "error", "error": f"Lỗi thực thi FFmpeg: {exc}"})
 

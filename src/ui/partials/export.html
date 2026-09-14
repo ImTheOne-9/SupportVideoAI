@@ -54,10 +54,13 @@
                 <div class="export-tile-icon apple-icon">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 8.452V15.548C22 17.514 20.353 19.117 18.318 19.117H5.682C3.647 19.117 2 17.514 2 15.548V8.452C2 6.486 3.647 4.883 5.682 4.883H18.318C20.353 4.883 22 6.486 22 8.452Z"/><path d="M10 15V9L15 12L10 15Z"/></svg>
                 </div>
-                <h3 class="export-tile-title">Xuất Video (.mp4)</h3>
-                <p class="export-tile-desc">Sử dụng FFmpeg backend để tự động render video thành phẩm hoàn chỉnh với tất cả B-Roll đã ghép.</p>
-                <div style="margin-bottom: 12px;">
-                  <input type="text" id="export-base-folder" placeholder="Đường dẫn thư mục video (Ví dụ: D:\Videos)" class="form-input" style="width:100%; font-size:11px; padding:8px; background:#111113; border:1px solid #333; color:#fff; border-radius:4px; user-select: text; -webkit-user-select: text; pointer-events: auto;">
+                <div style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                  <input type="text" id="export-base-folder" placeholder="Đường dẫn thư mục chứa video (Ví dụ: D:\Downloads)" class="form-input" style="width:100%; font-size:11px; padding:8px; background:#111113; border:1px solid #333; color:#fff; border-radius:4px; user-select: text; -webkit-user-select: text; pointer-events: auto;">
+                  <button class="btn-secondary-action" id="btn-browse-export-folder" style="width: 100%; justify-content: center; background: #25252b; border: 1px solid #333;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <span>Hoặc duyệt chọn 1 file video</span>
+                  </button>
+                  <input type="file" id="input-export-folder" accept="video/*" style="display:none;">
                 </div>
                 <button class="btn-tile-download" id="btn-export-mp4-dash">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>

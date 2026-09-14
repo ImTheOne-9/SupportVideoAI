@@ -2,6 +2,14 @@
 
 export const exportFeature = {
   timelineExportProject() {
+    let autoBaseFolder = "";
+    if (this.activeArollFile?.file?.path) {
+      const arollPath = this.activeArollFile.file.path;
+      autoBaseFolder = arollPath.substring(0, Math.max(arollPath.lastIndexOf('\\'), arollPath.lastIndexOf('/')));
+    }
+
+    const manualInput = document.getElementById("export-base-folder")?.value?.trim();
+
     return {
       name: this.currentProjectName,
       arollName: this.activeArollFile?.name || "C4095.mov",
@@ -14,7 +22,7 @@ export const exportFeature = {
       pipXPercent: this.brollPipXPercent || 0.56,
       pipYPercent: this.brollPipYPercent || 0.03,
       pipScalePercent: this.brollPipScalePercent || 0.40,
-      baseFolder: document.getElementById("export-base-folder")?.value || ""
+      baseFolder: manualInput || this.exportBaseFolder || autoBaseFolder || ""
     };
   },
   async canonicalXml() {
@@ -37,6 +45,12 @@ export const exportFeature = {
     o && (o.textContent = ((h = this.activeArollFile) == null ? void 0 : h.resolution) || (this.activeArollFile ? "1080p FHD (16:9)" : "-- x --"));
     const d = document.getElementById("export-banner-thumb"), a = document.getElementById("export-banner-thumb-empty");
     this.activeArollFile && this.activeArollFile.thumb ? (d && (d.src = this.activeArollFile.thumb, d.style.display = "block"), a && (a.style.display = "none")) : (d && (d.src = "", d.style.display = "none"), a && (a.style.display = "flex"));
+    
+    const folderInput = document.getElementById("export-base-folder");
+    if (folderInput && !folderInput.value) {
+       folderInput.value = this.timelineExportProject().baseFolder;
+    }
+
     const c = document.getElementById("dash-xml-preview-code");
     if (c) if (this.matchedPositions.length === 0 && !this.activeArollFile) c.textContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!-- D\u1EF1 \xE1n m\u1EDBi ch\u01B0a n\u1EA1p video. H\xE3y n\u1EA1p video A-Roll v\xE0 B-Roll \u0111\u1EC3 xem tr\u01B0\u1EDBc m\xE3 XML xu\u1EA5t timeline -->
@@ -87,6 +101,10 @@ export const exportFeature = {
     
     try {
       const payload = this.timelineExportProject();
+      if (!payload.baseFolder) {
+        alert("Vui lòng chọn thư mục chứa video gốc (nút 'Chọn thư mục gốc') trước khi xuất MP4.");
+        return;
+      }
       payload.format = "ffmpeg"; // Keep legacy format identifier just in case
 
       let finalFile = null;
