@@ -195,6 +195,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._ad_compliance()
             elif self.path == "/api/export":
                 self._export_timeline()
+            elif self.path == "/api/export-direct":
+                self._export_direct_stream()
             elif self.path == "/api/projects":
                 self._save_project()
             else:
@@ -251,13 +253,16 @@ class ApiHandler(BaseHTTPRequestHandler):
         height = max(16, min(16384, int(data.get("height", 2160) or 2160)))
         placements = data.get("placements") or []
         cuts = data.get("cuts") or []
+        pip_x_pct = float(data.get("pipXPercent", 0.56) or 0.56)
+        pip_y_pct = float(data.get("pipYPercent", 0.03) or 0.03)
+        pip_scale_pct = float(data.get("pipScalePercent", 0.40) or 0.40)
         if not isinstance(placements, list) or not isinstance(cuts, list):
             raise ValueError("Placements và cuts phải là danh sách.")
         safe_name = re.sub(r"[^\w.-]+", "_", project_name, flags=re.UNICODE).strip("._") or "CreatorUtils_Project"
 
         if export_format == "ffmpeg":
             exporter = MP4Exporter(project_name, width, height)
-            content = exporter.generate_bat_script(aroll_name, total_duration, placements, cuts)
+            content = exporter.generate_bat_script(aroll_name, total_duration, placements, cuts, pip_x_pct, pip_y_pct, pip_scale_pct)
             extension = "bat"
         else:
             exporter = TimelineXMLExporter(project_name, fps, width, height)
@@ -275,6 +280,73 @@ class ApiHandler(BaseHTTPRequestHandler):
             "filename": f"{safe_name}_{export_format}.{extension}",
             "format": export_format,
         })
+
+    def _export_direct_stream(self) -> None:
+        import subprocess
+        import re
+        
+        data = self._read_json()
+        total_duration = float(data.get("totalDurationSec", 0) or 0)
+        if total_duration <= 0:
+            raise ValueError("Thời lượng A-Roll phải lớn hơn 0.")
+        project_name = str(data.get("projectName") or "CreatorUtils Project").strip()[:160]
+        aroll_name = Path(str(data.get("arollName") or "A-Roll.mov")).name
+        width = max(16, min(16384, int(data.get("width", 3840) or 3840)))
+        height = max(16, min(16384, int(data.get("height", 2160) or 2160)))
+        placements = data.get("placements") or []
+        cuts = data.get("cuts") or []
+        pip_x_pct = float(data.get("pipXPercent", 0.56) or 0.56)
+        pip_y_pct = float(data.get("pipYPercent", 0.03) or 0.03)
+        pip_scale_pct = float(data.get("pipScalePercent", 0.40) or 0.40)
+        base_folder = data.get("baseFolder", "").strip()
+        safe_name = re.sub(r"[^\w.-]+", "_", project_name, flags=re.UNICODE).strip("._") or "CreatorUtils_Project"
+        output_file = f"{safe_name}_export.mp4"
+
+        exporter = MP4Exporter(project_name, width, height)
+        cmd = exporter.build_ffmpeg_command(aroll_name, total_duration, placements, cuts, pip_x_pct, pip_y_pct, pip_scale_pct, output_file)
+
+        self.send_response(200)
+        self._cors()
+        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+
+        try:
+            self._stream_event({"type": "start", "message": "Bắt đầu render MP4..."})
+            
+            # Start FFmpeg
+            cwd = base_folder if (base_folder and Path(base_folder).is_dir()) else None
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                cwd=cwd
+            )
+
+            time_pattern = re.compile(r"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})")
+            
+            for line in process.stdout:
+                match = time_pattern.search(line)
+                if match:
+                    h, m, s = float(match.group(1)), float(match.group(2)), float(match.group(3))
+                    current_sec = h * 3600 + m * 60 + s
+                    percent = min(99, int((current_sec / total_duration) * 100))
+                    self._stream_event({"type": "progress", "percent": percent, "time": f"{int(h):02}:{int(m):02}:{int(s):02}"})
+
+            process.wait()
+            if process.returncode == 0:
+                self._stream_event({"type": "done", "file": output_file})
+            else:
+                self._stream_event({"type": "error", "error": "FFmpeg render thất bại. Hãy kiểm tra file nguồn."})
+        except (BrokenPipeError, ConnectionResetError):
+            if 'process' in locals() and process.poll() is None:
+                process.terminate()
+        except Exception as exc:
+            self._stream_event({"type": "error", "error": f"Lỗi thực thi FFmpeg: {exc}"})
 
     def _configure_gemini(self) -> None:
         api_key = str(self._read_json().get("apiKey", "")).strip()

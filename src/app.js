@@ -26,6 +26,8 @@ export class CreatorUtilsApp {
   whisperModels = [];
   constructor() {
     var t;
+    this.brollPipXPercent = 0.56;
+    this.brollPipYPercent = 0.03;
     this.isDemoMode = false, this.brollLibrary = [], this.matchedPositions = [], this.currentProjectName = "D\u1EF1 \xE1n m\u1EDBi", this.totalDurationSec = 0, this.currentTimeSec = 0, this.isPlaying = false, this.playbackInterval = null, this.pixelsPerSec = 2.4, this.waveformPeaks = null, this.activeArollFile = null, this.currentPlayingBrollId = null, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.savedProjectId = null, this.summaryOptions = { type: "brief", language: "auto", tone: "professional", customTone: "" }, this.summaryResult = "", this.summaryModel = "", this.api = new ApiClient(), this.currentView = "transcript", this.cutReviewed = false, this.transcripts = [], this.silenceCuts = [], this.chapters = [], this.silenceThreshold = 0.6, this.silencePadding = 0.15, this.detectFillers = true, this.matcher = new ClientBrollMatcher({ minDuration: 3, maxDuration: 12, segmentLength: 16, coverageRatio: 0.7, introHoldSec: 3, only16_9: true, placementGuidance: ((t = document.getElementById("txt-placement-guidance")) == null ? void 0 : t.value) || "" }), this.exporter = new ClientTimelineExporter(this.currentProjectName, 30), this.timelineExportService = new TimelineExportService(this.api, (...args) => this.exporter.downloadFile(...args)), this.initElements(), this.bindEvents(), this.renderAll(), this.switchView("transcript", { force: true }), this.loadSettingsPage();
   }
   initElements() {
@@ -59,6 +61,7 @@ export class CreatorUtilsApp {
     this.geminiStatusDot = document.getElementById("gemini-status-dot");
   }
   bindEvents() {
+    this.bindOverlayDragEvents();
     this.sidebarNav.adCheck?.addEventListener("click", () => this.switchView("adCheck"));
     document.getElementById("btn-run-ad-check")?.addEventListener("click", () => this.handleRunAdCheck());
     document.getElementById("btn-rerun-ad-check")?.addEventListener("click", () => this.handleRunAdCheck());
@@ -239,6 +242,126 @@ export class CreatorUtilsApp {
     }), (Bt = document.getElementById("btn-execute-auto-cut")) == null || Bt.addEventListener("click", () => this.handleExecuteAutoCut()), (Mt = document.getElementById("btn-reset-all-cuts")) == null || Mt.addEventListener("click", () => this.handleResetAllCuts()), ($t = document.getElementById("chk-toggle-all-cuts")) == null || $t.addEventListener("change", (l) => this.handleToggleAllCuts(l.target.checked)), (Rt = document.getElementById("btn-ai-auto-segment")) == null || Rt.addEventListener("click", () => this.handleAiAutoSegment()), (At = document.getElementById("btn-add-custom-chapter")) == null || At.addEventListener("click", () => this.handleAddCustomChapter()), (jt = document.getElementById("btn-export-fcpxml-dash")) == null || jt.addEventListener("click", () => this.exportFCPXML()), document.getElementById("btn-export-mp4-dash")?.addEventListener("click", () => this.exportMP4()), (Dt = document.getElementById("btn-export-premiere-dash")) == null || Dt.addEventListener("click", () => this.exportPremiereXML()), (Ft = document.getElementById("btn-export-davinci-dash")) == null || Ft.addEventListener("click", () => this.exportDaVinciXML()), (Vt = document.getElementById("btn-export-srt-dash")) == null || Vt.addEventListener("click", () => this.handleExportSrt()), (Ot = document.getElementById("btn-copy-xml-code")) == null || Ot.addEventListener("click", () => this.handleCopyXml()), window.addEventListener("resize", () => {
       this.drawWaveform(), this.drawRuler();
     });
+  }
+
+  bindOverlayDragEvents() {
+    if (!this.activeBrollOverlay) return;
+    const resizeHandle = document.getElementById("broll-resize-handle");
+
+    const getVideoRenderRect = () => {
+      const video = this.mainVideoPlayer;
+      const container = this.activeBrollOverlay.parentElement;
+      if (!video || !container || video.videoWidth === 0) {
+        return { width: container.clientWidth, height: container.clientHeight, left: 0, top: 0 };
+      }
+      const videoRatio = video.videoWidth / video.videoHeight;
+      const containerRatio = container.clientWidth / container.clientHeight;
+      let w = container.clientWidth, h = container.clientHeight, x = 0, y = 0;
+      if (videoRatio > containerRatio) {
+        h = w / videoRatio;
+        y = (container.clientHeight - h) / 2;
+      } else {
+        w = h * videoRatio;
+        x = (container.clientWidth - w) / 2;
+      }
+      return { width: w, height: h, left: x, top: y };
+    };
+
+    this.activeBrollOverlay.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target === resizeHandle) return; // handled separately
+      
+      e.preventDefault();
+      const el = this.activeBrollOverlay;
+      const parent = el.parentElement;
+      if (!parent) return;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const rect = el.getBoundingClientRect();
+      const parentRect = parent.getBoundingClientRect();
+      const startLeft = rect.left - parentRect.left;
+      const startTop = rect.top - parentRect.top;
+      
+      el.setPointerCapture(e.pointerId);
+      
+      const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        let newLeft = startLeft + dx;
+        let newTop = startTop + dy;
+        
+        newLeft = Math.max(0, Math.min(newLeft, parentRect.width - rect.width));
+        newTop = Math.max(0, Math.min(newTop, parentRect.height - rect.height));
+        
+        el.style.left = `${(newLeft / parentRect.width) * 100}%`;
+        el.style.top = `${(newTop / parentRect.height) * 100}%`;
+      };
+      
+      const onUp = (ev) => {
+        el.releasePointerCapture(ev.pointerId);
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerup', onUp);
+        el.removeEventListener('pointercancel', onUp);
+        const finalRect = el.getBoundingClientRect();
+        const renderRect = getVideoRenderRect();
+        const relativeX = (finalRect.left - parentRect.left) - renderRect.left;
+        const relativeY = (finalRect.top - parentRect.top) - renderRect.top;
+        this.brollPipXPercent = relativeX / renderRect.width;
+        this.brollPipYPercent = relativeY / renderRect.height;
+      };
+      
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointercancel', onUp);
+    });
+
+    if (resizeHandle) {
+      resizeHandle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const el = this.activeBrollOverlay;
+        const parent = el.parentElement;
+        if (!parent) return;
+        
+        const startX = e.clientX;
+        const startWidth = el.offsetWidth;
+        const renderRect = getVideoRenderRect();
+        
+        resizeHandle.setPointerCapture(e.pointerId);
+        
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          let newWidth = startWidth + dx;
+          newWidth = Math.max(renderRect.width * 0.1, Math.min(newWidth, parent.offsetWidth - el.offsetLeft));
+          el.style.width = `${(newWidth / parent.offsetWidth) * 100}%`;
+        };
+        
+        const onUp = (ev) => {
+          resizeHandle.releasePointerCapture(ev.pointerId);
+          resizeHandle.removeEventListener('pointermove', onMove);
+          resizeHandle.removeEventListener('pointerup', onUp);
+          resizeHandle.removeEventListener('pointercancel', onUp);
+          this.brollPipScalePercent = el.offsetWidth / renderRect.width;
+        };
+        
+        resizeHandle.addEventListener('pointermove', onMove);
+        resizeHandle.addEventListener('pointerup', onUp);
+        resizeHandle.addEventListener('pointercancel', onUp);
+      });
+    }
+
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const el = entry.target;
+        const renderRect = getVideoRenderRect();
+        if (renderRect.width > 0) {
+           this.brollPipScalePercent = el.offsetWidth / renderRect.width;
+        }
+      }
+    });
+    resizeObserver.observe(this.activeBrollOverlay);
   }
 }
 

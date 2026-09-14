@@ -10,7 +10,11 @@ export const exportFeature = {
       cuts: this.silenceCuts,
       fps: 30,
       width: this.activeArollFile?.width,
-      height: this.activeArollFile?.height
+      height: this.activeArollFile?.height,
+      pipXPercent: this.brollPipXPercent || 0.56,
+      pipYPercent: this.brollPipYPercent || 0.03,
+      pipScalePercent: this.brollPipScalePercent || 0.40,
+      baseFolder: document.getElementById("export-base-folder")?.value || ""
     };
   },
   async canonicalXml() {
@@ -74,12 +78,34 @@ export const exportFeature = {
     }
   },
   async exportMP4() {
-    var i;
-    const t = ((i = this.activeArollFile) == null ? void 0 : i.name) || "C4095.mov";
+    const btn = document.getElementById("btn-export-mp4-dash");
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = "Đang render... 0%";
+    }
+    
     try {
-      await this.timelineExportService.export("ffmpeg", { name: this.currentProjectName, arollName: t, totalDurationSec: this.totalDurationSec, placements: this.matchedPositions, cuts: this.silenceCuts, fps: 30 });
+      const payload = this.timelineExportProject();
+      payload.format = "ffmpeg"; // Keep legacy format identifier just in case
+
+      let finalFile = null;
+      for await (const event of this.api.exportDirectStream(payload)) {
+        if (event.type === 'progress' && btn) {
+          btn.textContent = `Đang render... ${event.percent}%`;
+        } else if (event.type === 'done') {
+          finalFile = event.file;
+        }
+      }
+      
+      alert(`Render thành công!\nFile đã được lưu tại thư mục dự án với tên: ${finalFile}`);
     } catch (e) {
-      alert(`Không thể xuất MP4 script: ${e.message}`);
+      alert(`Không thể xuất MP4 trực tiếp: ${e.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || "Xuất MP4 (Trực tiếp)";
+      }
     }
   },
   async exportPremiereXML() {
