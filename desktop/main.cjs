@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage, dialog } = require('electron');
 const { spawn, spawnSync } = require('node:child_process');
 const { createServer } = require('node:http');
 const { existsSync, readFileSync, writeFileSync } = require('node:fs');
@@ -33,6 +33,11 @@ function registerSecretHandlers() {
     }
     writeFileSync(secretPath(), safeStorage.encryptString(String(value || '')));
     return true;
+  });
+  ipcMain.handle('system:select-directory', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+    if (!canceled && filePaths.length > 0) return filePaths[0];
+    return null;
   });
 }
 

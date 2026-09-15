@@ -240,7 +240,23 @@ export class CreatorUtilsApp {
     }), (kt = document.getElementById("chk-detect-fillers")) == null || kt.addEventListener("change", (l) => {
       this.detectFillers = l.target.checked, this.renderCutView();
     }), (Bt = document.getElementById("btn-execute-auto-cut")) == null || Bt.addEventListener("click", () => this.handleExecuteAutoCut()), (Mt = document.getElementById("btn-reset-all-cuts")) == null || Mt.addEventListener("click", () => this.handleResetAllCuts()), ($t = document.getElementById("chk-toggle-all-cuts")) == null || $t.addEventListener("change", (l) => this.handleToggleAllCuts(l.target.checked)), (Rt = document.getElementById("btn-ai-auto-segment")) == null || Rt.addEventListener("click", () => this.handleAiAutoSegment()), (At = document.getElementById("btn-add-custom-chapter")) == null || At.addEventListener("click", () => this.handleAddCustomChapter()), (jt = document.getElementById("btn-export-fcpxml-dash")) == null || jt.addEventListener("click", () => this.exportFCPXML()), document.getElementById("btn-export-mp4-dash")?.addEventListener("click", () => this.exportMP4()), (Dt = document.getElementById("btn-export-premiere-dash")) == null || Dt.addEventListener("click", () => this.exportPremiereXML()), (Ft = document.getElementById("btn-export-davinci-dash")) == null || Ft.addEventListener("click", () => this.exportDaVinciXML()), (Vt = document.getElementById("btn-export-srt-dash")) == null || Vt.addEventListener("click", () => this.handleExportSrt()), (Ot = document.getElementById("btn-copy-xml-code")) == null || Ot.addEventListener("click", () => this.handleCopyXml()),
-    document.getElementById("btn-browse-export-folder")?.addEventListener("click", () => document.getElementById("input-export-folder")?.click()),
+    document.getElementById("btn-browse-export-folder")?.addEventListener("click", async () => {
+      if (window.creatorUtilsDesktop?.selectDirectory) {
+        try {
+          const dirPath = await window.creatorUtilsDesktop.selectDirectory();
+          if (dirPath) {
+            this.exportBaseFolder = dirPath;
+            const folderInput = document.getElementById("export-base-folder");
+            if (folderInput) folderInput.value = dirPath;
+          }
+        } catch (e) {
+          console.error("Native folder picker failed:", e);
+          document.getElementById("input-export-folder")?.click();
+        }
+      } else {
+        document.getElementById("input-export-folder")?.click();
+      }
+    }),
     document.getElementById("input-export-folder")?.addEventListener("change", (e) => {
       const files = e.target.files;
       if (files && files.length > 0) {
