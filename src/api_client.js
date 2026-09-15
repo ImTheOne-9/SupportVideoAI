@@ -187,6 +187,46 @@ export class ApiClient {
     });
   }
 
+  async *exportDirectStream(payload) {
+    let response;
+    try {
+      response = await fetch(`${this.baseUrl}/api/export-direct`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      throw new Error('Không kết nối được AI engine để xuất MP4 trực tiếp.');
+    }
+    if (!response.ok) {
+      const respPayload = await response.json().catch(() => ({}));
+      throw new Error(respPayload.error || `AI engine trả về HTTP ${response.status}`);
+    }
+    if (!response.body) throw new Error('Trình duyệt không hỗ trợ đọc kết quả streaming.');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line);
+        if (event.type === 'error') throw new Error(event.error);
+        yield event;
+      }
+      if (done) break;
+    }
+    if (buffer.trim()) {
+      const event = JSON.parse(buffer);
+      if (event.type === 'error') throw new Error(event.error);
+      yield event;
+    }
+  }
+
   saveProject(project) {
     return this.request('/api/projects', {
       method: 'POST',

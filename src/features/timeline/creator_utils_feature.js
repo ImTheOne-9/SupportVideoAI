@@ -50,8 +50,9 @@ export const timelineFeature = {
   },
   calculateOptimalScale() {
     var i;
-    if (this.totalDurationSec <= 0) return 4;
-    const e = Math.max(800, (((i = this.timelineTracksScroll) == null ? void 0 : i.clientWidth) || 1100) - 80) / this.totalDurationSec;
+    const dur = this.getTimelineDuration ? this.getTimelineDuration() : this.totalDurationSec;
+    if (dur <= 0) return 4;
+    const e = Math.max(800, (((i = this.timelineTracksScroll) == null ? void 0 : i.clientWidth) || 1100) - 80) / dur;
     return Math.max(1.5, Math.min(20, parseFloat(e.toFixed(2))));
   },
   fitTimelineToFrame() {
@@ -59,7 +60,8 @@ export const timelineFeature = {
   },
   updateTimelineWidth() {
     var n;
-    const t = Math.max(1200, ((n = this.timelineTracksScroll) == null ? void 0 : n.clientWidth) || 1200), e = Math.round(this.totalDurationSec * this.pixelsPerSec) + 120, i = Math.max(t, e);
+    const dur = this.getTimelineDuration ? this.getTimelineDuration() : this.totalDurationSec;
+    const t = Math.max(1200, ((n = this.timelineTracksScroll) == null ? void 0 : n.clientWidth) || 1200), e = Math.round(dur * this.pixelsPerSec) + 120, i = Math.max(t, e);
     this.timelineWrapper.style.minWidth = `${i}px`;
   },
   renderAll() {
@@ -194,8 +196,9 @@ export const timelineFeature = {
     }
   },
   renderFilmstrip() {
-    if (this.trackArollFilmstripEl.innerHTML = "", !this.activeArollFile || this.totalDurationSec <= 0) return;
-    const t = Math.round(this.totalDurationSec * this.pixelsPerSec), e = document.createElement("div");
+    const dur = this.getTimelineDuration ? this.getTimelineDuration() : this.totalDurationSec;
+    if (this.trackArollFilmstripEl.innerHTML = "", !this.activeArollFile || dur <= 0) return;
+    const t = Math.round(dur * this.pixelsPerSec), e = document.createElement("div");
     e.className = "aroll-video-clip", e.style.width = `${t}px`, e.title = `A-Roll Video: ${this.activeArollFile.name}`;
     const i = document.createElement("div");
     i.className = "aroll-clip-tag", i.textContent = `V1 \xB7 ${this.activeArollFile.name}`, e.appendChild(i);
@@ -213,30 +216,39 @@ export const timelineFeature = {
     this.trackBrollRowEl.innerHTML = "", this.matchedPositions.forEach((t) => {
       const e = document.createElement("div");
       e.className = "broll-timeline-block";
-      const i = t.startSec * this.pixelsPerSec, n = Math.max(20, (t.endSec - t.startSec) * this.pixelsPerSec);
+      const tlStart = this.mediaToTimeline ? this.mediaToTimeline(t.startSec) : t.startSec;
+      const tlEnd = this.mediaToTimeline ? this.mediaToTimeline(t.endSec) : t.endSec;
+      const i = tlStart * this.pixelsPerSec, n = Math.max(20, (tlEnd - tlStart) * this.pixelsPerSec);
       e.style.left = `${i}px`, e.style.width = `${n}px`, e.title = `${t.clipId} (${t.startTime} -> ${t.endTime}) \xB7 ${t.matchPercentage}% match`, e.innerHTML = `
         <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${E(t.clipId)}</span>
         <span style="font-size: 8.5px; opacity: 0.85;">${t.durationSec}s</span>
       `, e.addEventListener("click", (s) => {
-        s.stopPropagation(), this.seekTo(t.startSec);
+        s.stopPropagation(), this.seekTo(tlStart);
       }), e.addEventListener("pointerdown", (event) => this.beginTimelineDrag(event, t, e)), this.trackBrollRowEl.appendChild(e);
     });
   },
   beginTimelineDrag(event, placement, element) {
     if (event.button !== 0) return;
     event.preventDefault();
-    const pointerStart = event.clientX, originalStart = placement.startSec, duration = placement.endSec - placement.startSec;
+    const mapToTL = (t) => this.mediaToTimeline ? this.mediaToTimeline(t) : t;
+    const mapToMedia = (t) => this.timelineToMedia ? this.timelineToMedia(t) : t;
+    const tlStart = mapToTL(placement.startSec);
+    const tlDuration = mapToTL(placement.endSec) - tlStart;
+    const pointerStart = event.clientX;
     element.setPointerCapture(event.pointerId), element.classList.add("dragging");
     const move = (current) => {
-      const requested = originalStart + (current.clientX - pointerStart) / this.pixelsPerSec;
-      const maxStart = Math.max(0, this.totalDurationSec - duration);
-      let nextStart = Math.round(Math.max(0, Math.min(maxStart, requested)) * 10) / 10;
-      const conflict = this.matchedPositions.filter((item) => item !== placement).find((item) => nextStart < item.endSec && nextStart + duration > item.startSec);
-      if (conflict) nextStart = requested >= originalStart ? conflict.endSec : conflict.startSec - duration;
-      nextStart = Math.round(Math.max(0, Math.min(maxStart, nextStart)) * 10) / 10;
-      placement.startSec = nextStart, placement.endSec = nextStart + duration;
+      const maxTL = this.getTimelineDuration ? this.getTimelineDuration() : this.totalDurationSec;
+      const requestedTL = tlStart + (current.clientX - pointerStart) / this.pixelsPerSec;
+      const maxStartTL = Math.max(0, maxTL - tlDuration);
+      let nextStartTL = Math.round(Math.max(0, Math.min(maxStartTL, requestedTL)) * 10) / 10;
+      const conflict = this.matchedPositions.filter((item) => item !== placement).find((item) => nextStartTL < mapToTL(item.endSec) && nextStartTL + tlDuration > mapToTL(item.startSec));
+      if (conflict) nextStartTL = requestedTL >= tlStart ? mapToTL(conflict.endSec) : mapToTL(conflict.startSec) - tlDuration;
+      nextStartTL = Math.round(Math.max(0, Math.min(maxStartTL, nextStartTL)) * 10) / 10;
+      
+      const nextStartMedia = mapToMedia(nextStartTL);
+      placement.startSec = nextStartMedia, placement.endSec = nextStartMedia + placement.durationSec;
       placement.startTime = this.matcher.formatTime(placement.startSec), placement.endTime = this.matcher.formatTime(placement.endSec);
-      element.style.left = `${placement.startSec * this.pixelsPerSec}px`;
+      element.style.left = `${nextStartTL * this.pixelsPerSec}px`;
     };
     const finish = () => {
       element.classList.remove("dragging"), element.removeEventListener("pointermove", move), element.removeEventListener("pointerup", finish), element.removeEventListener("pointercancel", finish);
@@ -245,8 +257,9 @@ export const timelineFeature = {
     element.addEventListener("pointermove", move), element.addEventListener("pointerup", finish), element.addEventListener("pointercancel", finish);
   },
   drawWaveform() {
-    if (!this.trackAudioWaveformEl || (this.trackAudioWaveformEl.innerHTML = "", !this.activeArollFile || this.totalDurationSec <= 0)) return;
-    const t = Math.round(this.totalDurationSec * this.pixelsPerSec), e = document.createElement("div");
+    const dur = this.getTimelineDuration ? this.getTimelineDuration() : this.totalDurationSec;
+    if (!this.trackAudioWaveformEl || (this.trackAudioWaveformEl.innerHTML = "", !this.activeArollFile || dur <= 0)) return;
+    const t = Math.round(dur * this.pixelsPerSec), e = document.createElement("div");
     e.className = "aroll-audio-clip", e.style.width = `${t}px`, e.title = `A-Roll Audio: ${this.activeArollFile.name}`;
     const i = document.createElement("div");
     i.className = "aroll-clip-tag", i.style.background = "rgba(20, 90, 160, 0.75)", i.textContent = "A1 \xB7 \xC2m thanh g\u1ED1c", e.appendChild(i);

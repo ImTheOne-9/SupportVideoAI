@@ -4,13 +4,101 @@ const $ = VideoImporter;
 
 export const cutFeature = {
   refreshSilenceCuts() {
-    this.silenceCuts = $.detectSilenceRanges(this.waveformPeaks, this.totalDurationSec, this.silenceThreshold, this.silencePadding), this.cutReviewed = false, this.renderCutView(), this.updateWorkflowUI();
+    let cuts = [];
+    
+    // 1. Detect silence gaps from transcripts if available
+    if (this.transcripts && this.transcripts.length > 0) {
+      let lastEndSec = 0;
+      this.transcripts.forEach(ts => {
+        const gap = ts.startSec - lastEndSec;
+        if (gap >= this.silenceThreshold) {
+          const startSec = lastEndSec + this.silencePadding;
+          const endSec = ts.startSec - this.silencePadding;
+          if (endSec > startSec) {
+            cuts.push({
+              id: `cut-sil-${cuts.length + 1}`,
+              startSec: Number(startSec.toFixed(2)),
+              endSec: Number(endSec.toFixed(2)),
+              durationSec: Number((endSec - startSec).toFixed(2)),
+              type: 'silence',
+              label: 'Kho\u1EA3ng l\u1EB7ng',
+              fromTranscript: true,
+              status: 'active'
+            });
+          }
+        }
+        lastEndSec = ts.endSec;
+      });
+      // Check for silence at the end of the video
+      if (this.totalDurationSec > lastEndSec) {
+        const gap = this.totalDurationSec - lastEndSec;
+        if (gap >= this.silenceThreshold) {
+          const startSec = lastEndSec + this.silencePadding;
+          const endSec = this.totalDurationSec - this.silencePadding;
+          if (endSec > startSec) {
+            cuts.push({
+              id: `cut-sil-${cuts.length + 1}`,
+              startSec: Number(startSec.toFixed(2)),
+              endSec: Number(endSec.toFixed(2)),
+              durationSec: Number((endSec - startSec).toFixed(2)),
+              type: 'silence',
+              label: 'Kho\u1EA3ng l\u1EB7ng',
+              fromTranscript: true,
+              status: 'active'
+            });
+          }
+        }
+      }
+    } else {
+      // Fallback to Web Audio API amplitude scanner
+      cuts = $.detectSilenceRanges(this.waveformPeaks, this.totalDurationSec, this.silenceThreshold, this.silencePadding);
+    }
+    
+    // 2. Detect Filler Words
+    if (this.transcripts && this.transcripts.length > 0) {
+      const fillerRegex = /\b(\u1EDD|\u00E0|\u1EEB|th\u00EC l\u00E0|v\u1EADy th\u00EC|ki\u1EC3u nh\u01B0|n\u00F3i chung l\u00E0|\u0111\u1EA1i lo\u1EA1i l\u00E0|\u01B0m)\b/gi;
+      this.transcripts.forEach(ts => {
+        if (!ts.text) return;
+        let match;
+        while ((match = fillerRegex.exec(ts.text)) !== null) {
+          const wordLength = match[0].length;
+          const textLength = ts.text.length;
+          const tsDuration = ts.endSec - ts.startSec;
+          
+          const startRatio = match.index / textLength;
+          const endRatio = (match.index + wordLength) / textLength;
+          
+          let estStartSec = ts.startSec + (tsDuration * startRatio);
+          let estEndSec = ts.startSec + (tsDuration * endRatio);
+          
+          estStartSec = Math.max(ts.startSec, estStartSec - 0.1);
+          estEndSec = Math.min(ts.endSec, estEndSec + 0.1);
+          
+          cuts.push({
+            id: `cut-fil-${cuts.length + 1}`,
+            startSec: Number(estStartSec.toFixed(2)),
+            endSec: Number(estEndSec.toFixed(2)),
+            durationSec: Number((estEndSec - estStartSec).toFixed(2)),
+            type: 'filler',
+            label: `T\u1EEB \u0111\u1EC7m (${match[0].toLowerCase()})`,
+            status: 'active'
+          });
+        }
+      });
+    }
+
+    cuts.sort((a, b) => a.startSec - b.startSec);
+    
+    this.silenceCuts = cuts;
+    this.cutReviewed = false;
+    this.renderCutView();
+    this.updateWorkflowUI();
   },
   renderCutView() {
     const t = document.getElementById("cutter-table-body"), e = document.getElementById("cut-timeline-strip");
     if (!t || !e) return;
     t.innerHTML = "", e.innerHTML = "";
-    const i = this.totalDurationSec || 161, n = this.silenceCuts.filter((p) => !this.detectFillers && p.type === "filler" ? false : p.durationSec >= this.silenceThreshold || p.type === "filler"), s = n.filter((p) => p.status !== "disabled"), r = s.reduce((p, b) => p + b.durationSec, 0), o = document.getElementById("badge-cut-savings");
+    const i = this.totalDurationSec || 161, n = this.silenceCuts.filter((p) => !this.detectFillers && p.type === "filler" ? false : true), s = n.filter((p) => p.status !== "disabled"), r = s.reduce((p, b) => p + b.durationSec, 0), o = document.getElementById("badge-cut-savings");
     if (o) {
       const p = i > 0 ? Math.round(r / i * 100) : 0;
       o.textContent = `Ti\u1EBFt ki\u1EC7m: ~${r.toFixed(1)} gi\xE2y (${p}% th\u1EDDi l\u01B0\u1EE3ng)`;
@@ -38,7 +126,7 @@ export const cutFeature = {
         <td><span class="${p.type === "silence" ? "cut-tag-red" : "cut-tag-amber"}">${p.label}</span></td>
         <td><code style="font-size:11px; color:var(--text-muted);">[${p.startSec.toFixed(2)}s - ${p.endSec.toFixed(2)}s]</code></td>
         <td><strong>${p.durationSec.toFixed(1)}s</strong></td>
-        <td><span style="color: var(--text-muted); font-size: 11.5px;">Ph\xE1t hi\u1EC7n t\u1EF1 \u0111\u1ED9ng b\u1EDFi b\u1ED9 l\u1ECDc t\u1EA7n s\u1ED1</span></td>
+        <td><span style="color: var(--text-muted); font-size: 11.5px;">${p.type === 'filler' ? 'Ph\xE1t hi\u1EC7n t\u1EEB \u0111\u1EC7m (AI)' : (p.fromTranscript ? 'Ph\xE1t hi\u1EC7n t\u1EEB b\u1EA3n ghi l\u1EDDi' : 'Ph\xE1t hi\u1EC7n qua bi\xEAn \u0111\u1ED9 \xE2m thanh')}</span></td>
         <td style="text-align: right;">
           <button class="btn-action-ghost btn-toggle-cut" data-id="${p.id}" style="font-size: 11px;">
             ${p.status === "disabled" ? "Kh\xF4i ph\u1EE5c" : "B\u1ECF qua"}
@@ -56,11 +144,14 @@ export const cutFeature = {
     if (!t) return;
     const e = this.silenceCuts.filter((n) => n.status !== "disabled"), i = e.reduce((n, s) => n + s.durationSec, 0);
     t.innerHTML = `<span>\u23F3 \u0110ang c\u1EAFt ${e.length} ph\xE2n \u0111o\u1EA1n...</span>`, setTimeout(() => {
-      t.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>X\xE1c nh\u1EADn danh s\xE1ch c\u1EAFt</span>', this.cutReviewed = true, this.updateWorkflowUI(), alert(`\u0110\xE3 x\xE1c nh\u1EADn ${e.length} kho\u1EA3ng l\u1EB7ng (${i.toFixed(1)} gi\xE2y). File ngu\u1ED3n kh\xF4ng b\u1ECB thay \u0111\u1ED5i; \u0111\xE2y l\xE0 danh s\xE1ch c\u1EAFt cho timeline.`);
+      t.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>X\xE1c nh\u1EADn danh s\xE1ch c\u1EAFt</span>', this.cutReviewed = true, this.updateWorkflowUI(), this.renderAll && this.renderAll(), alert(`\u0110\xE3 x\xE1c nh\u1EADn ${e.length} kho\u1EA3ng l\u1EB7ng (${i.toFixed(1)} gi\xE2y). File ngu\u1ED3n kh\xF4ng b\u1ECB thay \u0111\u1ED5i; \u0111\xE2y l\xE0 danh s\xE1ch c\u1EAFt cho timeline.`);
     }, 450);
   },
   handleResetAllCuts() {
-    this.silenceCuts.forEach((t) => t.status = "active"), this.renderCutView();
+    this.silenceCuts.forEach((t) => t.status = "active"), this.cutReviewed = false, this.renderCutView();
+    const t = document.getElementById("btn-execute-auto-cut");
+    if (t) t.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><span>X\xE1c nh\u1EADn danh s\xE1ch c\u1EAFt</span>';
+    this.updateWorkflowUI(), this.renderAll && this.renderAll();
   },
   handleToggleAllCuts(t) {
     this.silenceCuts.forEach((e) => e.status = t ? "active" : "disabled"), this.renderCutView();

@@ -26,6 +26,8 @@ export class CreatorUtilsApp {
   whisperModels = [];
   constructor() {
     var t;
+    this.brollPipXPercent = 0.56;
+    this.brollPipYPercent = 0.03;
     this.isDemoMode = false, this.brollLibrary = [], this.matchedPositions = [], this.currentProjectName = "D\u1EF1 \xE1n m\u1EDBi", this.totalDurationSec = 0, this.currentTimeSec = 0, this.isPlaying = false, this.playbackInterval = null, this.pixelsPerSec = 2.4, this.waveformPeaks = null, this.activeArollFile = null, this.currentPlayingBrollId = null, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.savedProjectId = null, this.summaryOptions = { type: "brief", language: "auto", tone: "professional", customTone: "" }, this.summaryResult = "", this.summaryModel = "", this.api = new ApiClient(), this.currentView = "transcript", this.cutReviewed = false, this.transcripts = [], this.silenceCuts = [], this.chapters = [], this.silenceThreshold = 0.6, this.silencePadding = 0.15, this.detectFillers = true, this.matcher = new ClientBrollMatcher({ minDuration: 3, maxDuration: 12, segmentLength: 16, coverageRatio: 0.7, introHoldSec: 3, only16_9: true, placementGuidance: ((t = document.getElementById("txt-placement-guidance")) == null ? void 0 : t.value) || "" }), this.exporter = new ClientTimelineExporter(this.currentProjectName, 30), this.timelineExportService = new TimelineExportService(this.api, (...args) => this.exporter.downloadFile(...args)), this.initElements(), this.bindEvents(), this.renderAll(), this.switchView("transcript", { force: true }), this.loadSettingsPage();
   }
   initElements() {
@@ -59,6 +61,7 @@ export class CreatorUtilsApp {
     this.geminiStatusDot = document.getElementById("gemini-status-dot");
   }
   bindEvents() {
+    this.bindOverlayDragEvents();
     this.sidebarNav.adCheck?.addEventListener("click", () => this.switchView("adCheck"));
     document.getElementById("btn-run-ad-check")?.addEventListener("click", () => this.handleRunAdCheck());
     document.getElementById("btn-rerun-ad-check")?.addEventListener("click", () => this.handleRunAdCheck());
@@ -96,14 +99,62 @@ export class CreatorUtilsApp {
       const y = parseFloat(l.target.value);
       this.mainVideoPlayer.playbackRate = y, this.brollOverlayVideo.playbackRate = y;
     }), (d = this.mainVideoPlayer) == null || d.addEventListener("timeupdate", () => {
-      this.mainVideoPlayer.paused || (this.syncTime(this.mainVideoPlayer.currentTime), this.activeTranscriptEndSec !== null && this.mainVideoPlayer.currentTime >= this.activeTranscriptEndSec && (this.mainVideoPlayer.pause(), this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon(), this.currentView === "transcript" && this.renderTranscriptView()));
+      if (!this.mainVideoPlayer.paused) {
+        this.syncTime(this.mediaToTimeline ? this.mediaToTimeline(this.mainVideoPlayer.currentTime) : this.mainVideoPlayer.currentTime);
+        this.activeTranscriptEndSec !== null && this.mainVideoPlayer.currentTime >= this.activeTranscriptEndSec && (this.mainVideoPlayer.pause(), this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon(), this.currentView === "transcript" && this.renderTranscriptView());
+      }
     }), (a = this.transcriptVideoPlayer) == null || a.addEventListener("timeupdate", () => {
-      this.transcriptVideoPlayer.paused || (this.syncTime(this.transcriptVideoPlayer.currentTime), this.activeTranscriptEndSec !== null && this.transcriptVideoPlayer.currentTime >= this.activeTranscriptEndSec && (this.transcriptVideoPlayer.pause(), this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon(), this.renderTranscriptView()));
+      if (!this.transcriptVideoPlayer.paused) {
+        this.syncTime(this.mediaToTimeline ? this.mediaToTimeline(this.transcriptVideoPlayer.currentTime) : this.transcriptVideoPlayer.currentTime);
+        this.activeTranscriptEndSec !== null && this.transcriptVideoPlayer.currentTime >= this.activeTranscriptEndSec && (this.transcriptVideoPlayer.pause(), this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon(), this.renderTranscriptView());
+      }
     }), (c = this.mainVideoPlayer) == null || c.addEventListener("ended", () => {
       this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon();
     }), (h = this.transcriptVideoPlayer) == null || h.addEventListener("ended", () => {
       this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon();
-    }), (m = this.transcriptVideoPlayer) == null || m.addEventListener("play", () => {
+    });
+    
+    const updateOverlayAspect = (w, h) => {
+        if (!w || !h) return;
+        this.activeBrollOverlay.style.aspectRatio = `${w}/${h}`;
+        const parent = this.activeBrollOverlay.parentElement;
+        if (parent) {
+            const currentWidth = this.activeBrollOverlay.offsetWidth;
+            const maxW = parent.offsetHeight / (h / w);
+            if (currentWidth > maxW) {
+                this.activeBrollOverlay.style.width = `${(maxW / parent.offsetWidth) * 100}%`;
+            }
+        }
+    };
+    this.brollOverlayVideo?.addEventListener("loadedmetadata", (e) => {
+        updateOverlayAspect(e.target.videoWidth, e.target.videoHeight);
+    });
+    this.brollOverlayImg?.addEventListener("load", (e) => {
+        updateOverlayAspect(e.target.naturalWidth, e.target.naturalHeight);
+    });
+    // High-frequency polling for precise cut skipping
+    setInterval(() => {
+        if (this.mainVideoPlayer && !this.mainVideoPlayer.paused) {
+            let currentTime = this.mainVideoPlayer.currentTime;
+            const activeCut = this.silenceCuts.find(cut => cut.status !== "disabled" && currentTime >= cut.startSec && currentTime < cut.endSec);
+            if (activeCut && activeCut.endSec > currentTime) {
+               this.mainVideoPlayer.currentTime = activeCut.endSec + 0.05;
+               return;
+            }
+            this.syncTime(this.mediaToTimeline ? this.mediaToTimeline(this.mainVideoPlayer.currentTime) : this.mainVideoPlayer.currentTime);
+        }
+        if (this.transcriptVideoPlayer && !this.transcriptVideoPlayer.paused) {
+            let currentTime = this.transcriptVideoPlayer.currentTime;
+            const activeCut = this.silenceCuts.find(cut => cut.status !== "disabled" && currentTime >= cut.startSec && currentTime < cut.endSec);
+            if (activeCut && activeCut.endSec > currentTime) {
+               this.transcriptVideoPlayer.currentTime = activeCut.endSec + 0.05;
+               return;
+            }
+            this.syncTime(this.mediaToTimeline ? this.mediaToTimeline(this.transcriptVideoPlayer.currentTime) : this.transcriptVideoPlayer.currentTime);
+        }
+    }, 16);
+    
+    (m = this.transcriptVideoPlayer) == null || m.addEventListener("play", () => {
       this.isPlaying = true, this.updatePlayPauseIcon();
     }), (u = this.transcriptVideoPlayer) == null || u.addEventListener("pause", () => {
       this.isPlaying = false, this.updatePlayPauseIcon();
@@ -111,7 +162,8 @@ export class CreatorUtilsApp {
     let t = false;
     const e = (l) => {
       if (!this.timelineWrapper) return;
-      const y = this.timelineWrapper.getBoundingClientRect(), C = Math.max(0, l.clientX - y.left), B = Math.min(this.totalDurationSec, Math.max(0, C / this.pixelsPerSec));
+      const maxT = this.getTimelineDuration ? this.getTimelineDuration() : this.totalDurationSec;
+      const y = this.timelineWrapper.getBoundingClientRect(), C = Math.max(0, l.clientX - y.left), B = Math.min(maxT, Math.max(0, C / this.pixelsPerSec));
       this.seekTo(B);
     };
     (g = this.playheadHandle) == null || g.addEventListener("mousedown", (l) => {
@@ -236,9 +288,237 @@ export class CreatorUtilsApp {
       y && (y.textContent = `${this.silencePadding.toFixed(2)}s`), this.refreshSilenceCuts();
     }), (kt = document.getElementById("chk-detect-fillers")) == null || kt.addEventListener("change", (l) => {
       this.detectFillers = l.target.checked, this.renderCutView();
-    }), (Bt = document.getElementById("btn-execute-auto-cut")) == null || Bt.addEventListener("click", () => this.handleExecuteAutoCut()), (Mt = document.getElementById("btn-reset-all-cuts")) == null || Mt.addEventListener("click", () => this.handleResetAllCuts()), ($t = document.getElementById("chk-toggle-all-cuts")) == null || $t.addEventListener("change", (l) => this.handleToggleAllCuts(l.target.checked)), (Rt = document.getElementById("btn-ai-auto-segment")) == null || Rt.addEventListener("click", () => this.handleAiAutoSegment()), (At = document.getElementById("btn-add-custom-chapter")) == null || At.addEventListener("click", () => this.handleAddCustomChapter()), (jt = document.getElementById("btn-export-fcpxml-dash")) == null || jt.addEventListener("click", () => this.exportFCPXML()), document.getElementById("btn-export-mp4-dash")?.addEventListener("click", () => this.exportMP4()), (Dt = document.getElementById("btn-export-premiere-dash")) == null || Dt.addEventListener("click", () => this.exportPremiereXML()), (Ft = document.getElementById("btn-export-davinci-dash")) == null || Ft.addEventListener("click", () => this.exportDaVinciXML()), (Vt = document.getElementById("btn-export-srt-dash")) == null || Vt.addEventListener("click", () => this.handleExportSrt()), (Ot = document.getElementById("btn-copy-xml-code")) == null || Ot.addEventListener("click", () => this.handleCopyXml()), window.addEventListener("resize", () => {
+    }), (Bt = document.getElementById("btn-execute-auto-cut")) == null || Bt.addEventListener("click", () => this.handleExecuteAutoCut()), (Mt = document.getElementById("btn-reset-all-cuts")) == null || Mt.addEventListener("click", () => this.handleResetAllCuts()), ($t = document.getElementById("chk-toggle-all-cuts")) == null || $t.addEventListener("change", (l) => this.handleToggleAllCuts(l.target.checked)), (Rt = document.getElementById("btn-ai-auto-segment")) == null || Rt.addEventListener("click", () => this.handleAiAutoSegment()), (At = document.getElementById("btn-add-custom-chapter")) == null || At.addEventListener("click", () => this.handleAddCustomChapter()), (jt = document.getElementById("btn-export-fcpxml-dash")) == null || jt.addEventListener("click", () => this.exportFCPXML()), document.getElementById("btn-export-mp4-dash")?.addEventListener("click", () => this.exportMP4()), (Dt = document.getElementById("btn-export-premiere-dash")) == null || Dt.addEventListener("click", () => this.exportPremiereXML()), (Ft = document.getElementById("btn-export-davinci-dash")) == null || Ft.addEventListener("click", () => this.exportDaVinciXML()), (Vt = document.getElementById("btn-export-srt-dash")) == null || Vt.addEventListener("click", () => this.handleExportSrt()), (Ot = document.getElementById("btn-copy-xml-code")) == null || Ot.addEventListener("click", () => this.handleCopyXml()),
+    document.getElementById("btn-browse-export-folder")?.addEventListener("click", async () => {
+      if (window.creatorUtilsDesktop?.selectDirectory) {
+        try {
+          const dirPath = await window.creatorUtilsDesktop.selectDirectory();
+          if (dirPath) {
+            this.exportBaseFolder = dirPath;
+            const folderInput = document.getElementById("export-base-folder");
+            if (folderInput) folderInput.value = dirPath;
+          }
+        } catch (e) {
+          console.error("Native folder picker failed:", e);
+          document.getElementById("input-export-folder")?.click();
+        }
+      } else {
+        document.getElementById("input-export-folder")?.click();
+      }
+    }),
+    document.getElementById("input-export-folder")?.addEventListener("change", (e) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        const path = files[0].path;
+        if (path) {
+           const dirPath = path.substring(0, Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/')));
+           this.exportBaseFolder = dirPath;
+           const folderInput = document.getElementById("export-base-folder");
+           if (folderInput) {
+             folderInput.value = dirPath;
+           }
+        } else {
+           alert("Trình duyệt không hỗ trợ lấy đường dẫn gốc của file. Vui lòng chạy ứng dụng bằng Desktop App (Electron) để sử dụng tính năng Xuất trực tiếp.");
+        }
+      }
+    }),
+    window.addEventListener("resize", () => {
       this.drawWaveform(), this.drawRuler();
     });
+  }
+
+  bindOverlayDragEvents() {
+    if (!this.activeBrollOverlay) return;
+    const resizeHandle = document.getElementById("broll-resize-handle");
+
+    const getVideoRenderRect = () => {
+      const video = this.mainVideoPlayer;
+      const container = this.activeBrollOverlay.parentElement;
+      if (!video || !container || video.videoWidth === 0) {
+        return { width: container.clientWidth, height: container.clientHeight, left: 0, top: 0 };
+      }
+      const videoRatio = video.videoWidth / video.videoHeight;
+      const containerRatio = container.clientWidth / container.clientHeight;
+      let w = container.clientWidth, h = container.clientHeight, x = 0, y = 0;
+      if (videoRatio > containerRatio) {
+        h = w / videoRatio;
+        y = (container.clientHeight - h) / 2;
+      } else {
+        w = h * videoRatio;
+        x = (container.clientWidth - w) / 2;
+      }
+      return { width: w, height: h, left: x, top: y };
+    };
+
+    this.activeBrollOverlay.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target === resizeHandle) return; // handled separately
+      
+      e.preventDefault();
+      const el = this.activeBrollOverlay;
+      const parent = el.parentElement;
+      if (!parent) return;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const rect = el.getBoundingClientRect();
+      const parentRect = parent.getBoundingClientRect();
+      const startLeft = rect.left - parentRect.left;
+      const startTop = rect.top - parentRect.top;
+      
+      el.setPointerCapture(e.pointerId);
+      
+      const onMove = (ev) => {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        let newLeft = startLeft + dx;
+        let newTop = startTop + dy;
+        
+        newLeft = Math.max(0, Math.min(newLeft, parentRect.width - rect.width));
+        newTop = Math.max(0, Math.min(newTop, parentRect.height - rect.height));
+        
+        el.style.left = `${(newLeft / parentRect.width) * 100}%`;
+        el.style.top = `${(newTop / parentRect.height) * 100}%`;
+      };
+      
+      const onUp = (ev) => {
+        el.releasePointerCapture(ev.pointerId);
+        el.removeEventListener('pointermove', onMove);
+        el.removeEventListener('pointerup', onUp);
+        el.removeEventListener('pointercancel', onUp);
+        const finalRect = el.getBoundingClientRect();
+        const renderRect = getVideoRenderRect();
+        const relativeX = (finalRect.left - parentRect.left) - renderRect.left;
+        const relativeY = (finalRect.top - parentRect.top) - renderRect.top;
+        this.brollPipXPercent = relativeX / renderRect.width;
+        this.brollPipYPercent = relativeY / renderRect.height;
+      };
+      
+      el.addEventListener('pointermove', onMove);
+      el.addEventListener('pointerup', onUp);
+      el.addEventListener('pointercancel', onUp);
+    });
+
+    if (resizeHandle) {
+      resizeHandle.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const el = this.activeBrollOverlay;
+        const parent = el.parentElement;
+        if (!parent) return;
+        
+        const startX = e.clientX;
+        const startWidth = el.offsetWidth;
+        const renderRect = getVideoRenderRect();
+        
+        let brollRatio = 9 / 16;
+        if (el.style.aspectRatio) {
+            const parts = el.style.aspectRatio.split('/');
+            if (parts.length === 2) brollRatio = parseFloat(parts[1]) / parseFloat(parts[0]);
+        }
+        
+        resizeHandle.setPointerCapture(e.pointerId);
+        
+        const onMove = (ev) => {
+          const dx = ev.clientX - startX;
+          let newWidth = startWidth + dx;
+          
+          const maxW1 = parent.offsetWidth - el.offsetLeft;
+          const maxW2 = (parent.offsetHeight - el.offsetTop) / brollRatio;
+          const maxW = Math.min(maxW1, maxW2);
+          
+          newWidth = Math.max(renderRect.width * 0.1, Math.min(newWidth, maxW));
+          el.style.width = `${(newWidth / parent.offsetWidth) * 100}%`;
+        };
+        
+        const onUp = (ev) => {
+          resizeHandle.releasePointerCapture(ev.pointerId);
+          resizeHandle.removeEventListener('pointermove', onMove);
+          resizeHandle.removeEventListener('pointerup', onUp);
+          resizeHandle.removeEventListener('pointercancel', onUp);
+          this.brollPipScalePercent = el.offsetWidth / renderRect.width;
+        };
+        
+        resizeHandle.addEventListener('pointermove', onMove);
+        resizeHandle.addEventListener('pointerup', onUp);
+        resizeHandle.addEventListener('pointercancel', onUp);
+      });
+    }
+
+    const resizeObserver = new ResizeObserver(entries => {
+      for (let entry of entries) {
+        const el = entry.target;
+        const renderRect = getVideoRenderRect();
+        if (renderRect.width > 0) {
+           this.brollPipScalePercent = el.offsetWidth / renderRect.width;
+        }
+      }
+    });
+    resizeObserver.observe(this.activeBrollOverlay);
+  }
+
+  getTimelineDuration() {
+    if (!this.cutReviewed || !this.silenceCuts || this.silenceCuts.length === 0) return this.totalDurationSec;
+    const segments = this.getKeptSegments();
+    return segments.length > 0 ? segments[segments.length - 1].timelineEndSec : 0;
+  }
+  
+  getKeptSegments() {
+    const cuts = (this.silenceCuts || []).filter(c => c.status !== "disabled").sort((a, b) => a.startSec - b.startSec);
+    let segments = [];
+    let current_v = 0.0;
+    let timeline_t = 0.0;
+    
+    for (const cut of cuts) {
+        if (cut.startSec > current_v) {
+            const dur = cut.startSec - current_v;
+            segments.push({
+                mediaStartSec: current_v,
+                mediaEndSec: cut.startSec,
+                timelineStartSec: timeline_t,
+                timelineEndSec: timeline_t + dur
+            });
+            timeline_t += dur;
+        }
+        current_v = Math.max(current_v, cut.endSec);
+    }
+    
+    if (this.totalDurationSec > current_v) {
+        const dur = this.totalDurationSec - current_v;
+        segments.push({
+            mediaStartSec: current_v,
+            mediaEndSec: this.totalDurationSec,
+            timelineStartSec: timeline_t,
+            timelineEndSec: timeline_t + dur
+        });
+    }
+    return segments;
+  }
+
+  mediaToTimeline(mediaTime) {
+    if (!this.cutReviewed || !this.silenceCuts || this.silenceCuts.length === 0) return mediaTime;
+    const segments = this.getKeptSegments();
+    for (const seg of segments) {
+        if (mediaTime >= seg.mediaStartSec && mediaTime <= seg.mediaEndSec) {
+            return seg.timelineStartSec + (mediaTime - seg.mediaStartSec);
+        }
+        if (mediaTime < seg.mediaStartSec) {
+            return seg.timelineStartSec;
+        }
+    }
+    return segments.length > 0 ? segments[segments.length - 1].timelineEndSec : 0;
+  }
+
+  timelineToMedia(timelineTime) {
+    if (!this.cutReviewed || !this.silenceCuts || this.silenceCuts.length === 0) return timelineTime;
+    const segments = this.getKeptSegments();
+    for (const seg of segments) {
+        if (timelineTime >= seg.timelineStartSec && timelineTime <= seg.timelineEndSec) {
+            return seg.mediaStartSec + (timelineTime - seg.timelineStartSec);
+        }
+    }
+    return segments.length > 0 ? segments[segments.length - 1].mediaEndSec : 0;
   }
 }
 
