@@ -99,14 +99,44 @@ export class CreatorUtilsApp {
       const y = parseFloat(l.target.value);
       this.mainVideoPlayer.playbackRate = y, this.brollOverlayVideo.playbackRate = y;
     }), (d = this.mainVideoPlayer) == null || d.addEventListener("timeupdate", () => {
-      this.mainVideoPlayer.paused || (this.syncTime(this.mainVideoPlayer.currentTime), this.activeTranscriptEndSec !== null && this.mainVideoPlayer.currentTime >= this.activeTranscriptEndSec && (this.mainVideoPlayer.pause(), this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon(), this.currentView === "transcript" && this.renderTranscriptView()));
+      if (!this.mainVideoPlayer.paused) {
+        this.syncTime(this.mediaToTimeline ? this.mediaToTimeline(this.mainVideoPlayer.currentTime) : this.mainVideoPlayer.currentTime);
+        this.activeTranscriptEndSec !== null && this.mainVideoPlayer.currentTime >= this.activeTranscriptEndSec && (this.mainVideoPlayer.pause(), this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon(), this.currentView === "transcript" && this.renderTranscriptView());
+      }
     }), (a = this.transcriptVideoPlayer) == null || a.addEventListener("timeupdate", () => {
-      this.transcriptVideoPlayer.paused || (this.syncTime(this.transcriptVideoPlayer.currentTime), this.activeTranscriptEndSec !== null && this.transcriptVideoPlayer.currentTime >= this.activeTranscriptEndSec && (this.transcriptVideoPlayer.pause(), this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon(), this.renderTranscriptView()));
+      if (!this.transcriptVideoPlayer.paused) {
+        this.syncTime(this.mediaToTimeline ? this.mediaToTimeline(this.transcriptVideoPlayer.currentTime) : this.transcriptVideoPlayer.currentTime);
+        this.activeTranscriptEndSec !== null && this.transcriptVideoPlayer.currentTime >= this.activeTranscriptEndSec && (this.transcriptVideoPlayer.pause(), this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon(), this.renderTranscriptView());
+      }
     }), (c = this.mainVideoPlayer) == null || c.addEventListener("ended", () => {
       this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon();
     }), (h = this.transcriptVideoPlayer) == null || h.addEventListener("ended", () => {
       this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon();
-    }), (m = this.transcriptVideoPlayer) == null || m.addEventListener("play", () => {
+    });
+    
+    // High-frequency polling for precise cut skipping
+    setInterval(() => {
+        if (this.mainVideoPlayer && !this.mainVideoPlayer.paused) {
+            let currentTime = this.mainVideoPlayer.currentTime;
+            const activeCut = this.silenceCuts.find(cut => cut.status !== "disabled" && currentTime >= cut.startSec && currentTime < cut.endSec);
+            if (activeCut && activeCut.endSec > currentTime) {
+               this.mainVideoPlayer.currentTime = activeCut.endSec + 0.05;
+               return;
+            }
+            this.syncTime(this.mediaToTimeline ? this.mediaToTimeline(this.mainVideoPlayer.currentTime) : this.mainVideoPlayer.currentTime);
+        }
+        if (this.transcriptVideoPlayer && !this.transcriptVideoPlayer.paused) {
+            let currentTime = this.transcriptVideoPlayer.currentTime;
+            const activeCut = this.silenceCuts.find(cut => cut.status !== "disabled" && currentTime >= cut.startSec && currentTime < cut.endSec);
+            if (activeCut && activeCut.endSec > currentTime) {
+               this.transcriptVideoPlayer.currentTime = activeCut.endSec + 0.05;
+               return;
+            }
+            this.syncTime(this.mediaToTimeline ? this.mediaToTimeline(this.transcriptVideoPlayer.currentTime) : this.transcriptVideoPlayer.currentTime);
+        }
+    }, 16);
+    
+    (m = this.transcriptVideoPlayer) == null || m.addEventListener("play", () => {
       this.isPlaying = true, this.updatePlayPauseIcon();
     }), (u = this.transcriptVideoPlayer) == null || u.addEventListener("pause", () => {
       this.isPlaying = false, this.updatePlayPauseIcon();
@@ -114,7 +144,8 @@ export class CreatorUtilsApp {
     let t = false;
     const e = (l) => {
       if (!this.timelineWrapper) return;
-      const y = this.timelineWrapper.getBoundingClientRect(), C = Math.max(0, l.clientX - y.left), B = Math.min(this.totalDurationSec, Math.max(0, C / this.pixelsPerSec));
+      const maxT = this.getTimelineDuration ? this.getTimelineDuration() : this.totalDurationSec;
+      const y = this.timelineWrapper.getBoundingClientRect(), C = Math.max(0, l.clientX - y.left), B = Math.min(maxT, Math.max(0, C / this.pixelsPerSec));
       this.seekTo(B);
     };
     (g = this.playheadHandle) == null || g.addEventListener("mousedown", (l) => {
@@ -396,6 +427,69 @@ export class CreatorUtilsApp {
       }
     });
     resizeObserver.observe(this.activeBrollOverlay);
+  }
+
+  getTimelineDuration() {
+    if (!this.cutReviewed || !this.silenceCuts || this.silenceCuts.length === 0) return this.totalDurationSec;
+    const segments = this.getKeptSegments();
+    return segments.length > 0 ? segments[segments.length - 1].timelineEndSec : 0;
+  }
+  
+  getKeptSegments() {
+    const cuts = (this.silenceCuts || []).filter(c => c.status !== "disabled").sort((a, b) => a.startSec - b.startSec);
+    let segments = [];
+    let current_v = 0.0;
+    let timeline_t = 0.0;
+    
+    for (const cut of cuts) {
+        if (cut.startSec > current_v) {
+            const dur = cut.startSec - current_v;
+            segments.push({
+                mediaStartSec: current_v,
+                mediaEndSec: cut.startSec,
+                timelineStartSec: timeline_t,
+                timelineEndSec: timeline_t + dur
+            });
+            timeline_t += dur;
+        }
+        current_v = Math.max(current_v, cut.endSec);
+    }
+    
+    if (this.totalDurationSec > current_v) {
+        const dur = this.totalDurationSec - current_v;
+        segments.push({
+            mediaStartSec: current_v,
+            mediaEndSec: this.totalDurationSec,
+            timelineStartSec: timeline_t,
+            timelineEndSec: timeline_t + dur
+        });
+    }
+    return segments;
+  }
+
+  mediaToTimeline(mediaTime) {
+    if (!this.cutReviewed || !this.silenceCuts || this.silenceCuts.length === 0) return mediaTime;
+    const segments = this.getKeptSegments();
+    for (const seg of segments) {
+        if (mediaTime >= seg.mediaStartSec && mediaTime <= seg.mediaEndSec) {
+            return seg.timelineStartSec + (mediaTime - seg.mediaStartSec);
+        }
+        if (mediaTime < seg.mediaStartSec) {
+            return seg.timelineStartSec;
+        }
+    }
+    return segments.length > 0 ? segments[segments.length - 1].timelineEndSec : 0;
+  }
+
+  timelineToMedia(timelineTime) {
+    if (!this.cutReviewed || !this.silenceCuts || this.silenceCuts.length === 0) return timelineTime;
+    const segments = this.getKeptSegments();
+    for (const seg of segments) {
+        if (timelineTime >= seg.timelineStartSec && timelineTime <= seg.timelineEndSec) {
+            return seg.mediaStartSec + (timelineTime - seg.timelineStartSec);
+        }
+    }
+    return segments.length > 0 ? segments[segments.length - 1].mediaEndSec : 0;
   }
 }
 

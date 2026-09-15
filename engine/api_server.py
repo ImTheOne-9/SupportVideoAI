@@ -304,6 +304,14 @@ class ApiHandler(BaseHTTPRequestHandler):
 
         exporter = MP4Exporter(project_name, width, height)
         cmd = exporter.build_ffmpeg_command(aroll_name, total_duration, placements, cuts, pip_x_pct, pip_y_pct, pip_scale_pct, output_file)
+        
+        try:
+            with open("export_log.txt", "w", encoding="utf-8") as f:
+                f.write(f"PAYLOAD CUTS: {json.dumps(cuts, ensure_ascii=False)}\n")
+                f.write(f"GENERATED CMD: {' '.join(cmd)}\n")
+        except Exception:
+            pass
+
 
         self.send_response(200)
         self._cors()

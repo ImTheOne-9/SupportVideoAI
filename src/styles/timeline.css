@@ -133,7 +133,6 @@
   top: 3%;
   left: 56%;
   width: 40%;
-  aspect-ratio: 16/9;
   border-radius: 6px;
   border: 2px solid var(--color-purple);
   box-shadow: 0 4px 15px rgba(0,0,0,0.7);

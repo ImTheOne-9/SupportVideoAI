@@ -41,11 +41,9 @@ class MP4Exporter:
         # Resolution & PiP Setup
         aroll_scale = f"scale={self.width}:{self.height}:force_original_aspect_ratio=decrease,pad={self.width}:{self.height}:(ow-iw)/2:(oh-ih)/2"
         norm = "fps=30,format=yuv420p,setsar=1"
-        # Determine PiP size based on scale percentage
+        # Determine PiP size based on scale percentage (Width only, let FFmpeg preserve intrinsic aspect ratio for Height)
         pip_w = int(self.width * pip_scale_pct)
         pip_w += pip_w % 2
-        pip_h = int(pip_w * 9 / 16)
-        pip_h += pip_h % 2
         
         # Calculate exactly based on percentages, ensuring it is an even number for FFmpeg
         pip_x = int(self.width * pip_x_pct)
@@ -53,7 +51,20 @@ class MP4Exporter:
         pip_y = int(self.height * pip_y_pct)
         pip_y -= pip_y % 2
         
-        broll_scale = f"scale={pip_w}:{pip_h}:force_original_aspect_ratio=increase,crop={pip_w}:{pip_h}"
+        broll_scale = f"scale={pip_w}:-2"
+        
+        concat_inputs = []
+        for i, seg in enumerate(segments):
+            start = seg['sourceStartSec']
+            end = seg['sourceEndSec']
+            filter_complex.append(f"[0:v]trim=start={start}:end={end},setpts=PTS-STARTPTS,{aroll_scale},{norm}[v{i}]")
+            filter_complex.append(f"[0:a]atrim=start={start}:end={end},asetpts=PTS-STARTPTS[a{i}]")
+            concat_inputs.append(f"[v{i}][a{i}]")
+            
+        concat_str = "".join(concat_inputs)
+        filter_complex.append(f"{concat_str}concat=n={len(segments)}:v=1:a=1[base_v][base_a]")
+        
+        current_v = "base_v"
         
         for i, b in enumerate(placements):
             start_sec = float(self._value(b, "start_sec", "startSec", 0))
@@ -62,57 +73,22 @@ class MP4Exporter:
             duration = float(self._value(b, "duration_sec", "durationSec", 0))
             clip_name = unquote(self._value(b, "clip_name", "clipName", f"{self._value(b, 'clip_id', 'clipId')}.mov"))
             
-            # 1. A-roll Gap Slice
-            if start_sec > current_a_time:
-                a_dur = start_sec - current_a_time
-                cmd.extend(['-ss', str(current_a_time), '-t', str(a_dur), '-i', aroll_name])
-                lbl = f"a_gap_{i}"
-                filter_complex.append(f"[{input_idx}:v]setpts=PTS-STARTPTS,{aroll_scale},{norm}[{lbl}]")
-                video_slices.append(lbl)
-                input_idx += 1
-                
-            # 2. A-roll Base Slice for Overlay
-            cmd.extend(['-ss', str(start_sec), '-t', str(duration), '-i', aroll_name])
-            a_lbl = f"a_base_{i}"
-            filter_complex.append(f"[{input_idx}:v]setpts=PTS-STARTPTS,{aroll_scale},{norm}[{a_lbl}]")
-            input_idx += 1
-            
-            # 3. B-roll PiP Slice
+            idx = i + 1
             cmd.extend(['-ss', str(source_in), '-t', str(duration), '-i', clip_name])
-            b_lbl = f"b_pip_{i}"
-            filter_complex.append(f"[{input_idx}:v]setpts=PTS-STARTPTS,{broll_scale},{norm}[{b_lbl}]")
-            input_idx += 1
             
-            # 4. Apply Overlay
-            ov_lbl = f"ov_{i}"
-            filter_complex.append(f"[{a_lbl}][{b_lbl}]overlay=x={pip_x}:y={pip_y}[{ov_lbl}]")
-            video_slices.append(ov_lbl)
+            b_lbl = f"b_pip_{idx}"
+            filter_complex.append(f"[{idx}:v]setpts=PTS-STARTPTS+{start_sec}/TB,{broll_scale},{norm}[{b_lbl}]")
             
-            current_a_time = end_sec
+            ov_lbl = f"ov_{idx}"
+            filter_complex.append(f"[{current_v}][{b_lbl}]overlay=x={pip_x}:y={pip_y}:enable='between(t,{start_sec},{end_sec})':eof_action=pass[{ov_lbl}]")
+            current_v = ov_lbl
             
-        # Final A-roll Gap Slice
-        if current_a_time < total_duration_sec - 0.05:
-            cmd.extend(['-ss', str(current_a_time), '-i', aroll_name])
-            lbl = "a_end"
-            filter_complex.append(f"[{input_idx}:v]setpts=PTS-STARTPTS,{aroll_scale},{norm}[{lbl}]")
-            video_slices.append(lbl)
-            
-        # Concat all video slices
-        if len(video_slices) > 1:
-            concat_inputs = "".join([f"[{lbl}]" for lbl in video_slices])
-            filter_complex.append(f"{concat_inputs}concat=n={len(video_slices)}:v=1:a=0[outv]")
-            current_main = "outv"
-        elif len(video_slices) == 1:
-            current_main = video_slices[0]
-        else:
-            filter_complex.append(f"[0:v]{aroll_scale},{norm}[outv]")
-            current_main = "outv"
-            
-        filter_str = "; ".join(filter_complex)
+        filter_str = ";".join(filter_complex)
         
         cmd.extend(['-filter_complex', filter_str])
-        cmd.extend(['-map', f'[{current_main}]'])
-        cmd.extend(['-map', '0:a'])  # Map original audio
+        cmd.extend(['-map', f'[{current_v}]'])
+        cmd.extend(['-map', '[base_a]'])
+
         
         cmd.extend(['-c:v', 'libx264', '-preset', 'fast', '-crf', '23'])
         cmd.extend(['-c:a', 'aac', '-b:a', '192k'])
