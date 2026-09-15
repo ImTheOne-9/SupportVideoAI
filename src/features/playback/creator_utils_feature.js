@@ -32,8 +32,25 @@ export const playbackFeature = {
     const s = this.matchedPositions.find((r) => mediaTime >= r.startSec && mediaTime <= r.endSec);
     if (s) {
       const r = this.brollLibrary.find((o) => o.id === s.clipId);
-      r && (r.videoUrl ? (this.currentPlayingBrollId !== r.id && (this.currentPlayingBrollId = r.id, this.brollOverlayVideo.src = r.videoUrl, this.brollOverlayVideo.currentTime = Math.max(0, mediaTime - s.startSec), this.brollOverlayVideo.style.display = "block", this.brollOverlayImg.style.display = "none"), this.isPlaying && this.brollOverlayVideo.paused && this.brollOverlayVideo.play().catch(() => {
-      })) : (this.currentPlayingBrollId = null, this.brollOverlayImg.src = r.thumb, this.brollOverlayImg.style.display = "block", this.brollOverlayVideo.style.display = "none"), this.brollOverlayLabel.textContent = `B-ROLL: ${r.id} (${s.matchPercentage}%)`, this.activeBrollOverlay.classList.add("visible"));
+      r && (r.videoUrl ? (this.currentPlayingBrollId !== r.id && (this.currentPlayingBrollId = r.id, this.brollOverlayVideo.src = r.videoUrl, this.brollOverlayVideo.currentTime = Math.max(0, mediaTime - s.startSec), this.brollOverlayVideo.style.display = "block", this.brollOverlayImg.style.display = "none",
+        (() => {
+          const ratio = (r.width && r.height) ? `${r.width}/${r.height}` : "16/9";
+          this.activeBrollOverlay.style.aspectRatio = ratio;
+          const parent = this.activeBrollOverlay.parentElement;
+          if (parent) {
+             const overlayRatio = (r.height && r.width) ? (r.height / r.width) : (9 / 16);
+             const currentWidth = this.activeBrollOverlay.offsetWidth;
+             const maxW = parent.offsetHeight / overlayRatio;
+             if (currentWidth > maxW) {
+                 this.activeBrollOverlay.style.width = `${(maxW / parent.offsetWidth) * 100}%`;
+             }
+          }
+        })()
+      ), this.isPlaying && this.brollOverlayVideo.paused && this.brollOverlayVideo.play().catch(() => {
+      })) : (this.currentPlayingBrollId = null, this.brollOverlayImg.src = r.thumb, this.brollOverlayImg.style.display = "block", this.brollOverlayVideo.style.display = "none", (() => {
+          const ratio = (r.width && r.height) ? `${r.width}/${r.height}` : "16/9";
+          this.activeBrollOverlay.style.aspectRatio = ratio;
+      })()), this.brollOverlayLabel.textContent = `B-ROLL: ${r.id} (${s.matchPercentage}%)`, this.activeBrollOverlay.classList.add("visible"));
     } else this.currentPlayingBrollId = null, this.activeBrollOverlay.classList.remove("visible"), this.brollOverlayVideo.paused || this.brollOverlayVideo.pause();
     if (document.querySelectorAll(".matched-card-item").forEach((r) => r.classList.remove("active-playing")), s) {
       const r = document.getElementById(`card-${s.id}`);

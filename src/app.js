@@ -114,6 +114,24 @@ export class CreatorUtilsApp {
       this.isPlaying = false, this.activeTranscriptId = null, this.activeTranscriptEndSec = null, this.updatePlayPauseIcon();
     });
     
+    const updateOverlayAspect = (w, h) => {
+        if (!w || !h) return;
+        this.activeBrollOverlay.style.aspectRatio = `${w}/${h}`;
+        const parent = this.activeBrollOverlay.parentElement;
+        if (parent) {
+            const currentWidth = this.activeBrollOverlay.offsetWidth;
+            const maxW = parent.offsetHeight / (h / w);
+            if (currentWidth > maxW) {
+                this.activeBrollOverlay.style.width = `${(maxW / parent.offsetWidth) * 100}%`;
+            }
+        }
+    };
+    this.brollOverlayVideo?.addEventListener("loadedmetadata", (e) => {
+        updateOverlayAspect(e.target.videoWidth, e.target.videoHeight);
+    });
+    this.brollOverlayImg?.addEventListener("load", (e) => {
+        updateOverlayAspect(e.target.naturalWidth, e.target.naturalHeight);
+    });
     // High-frequency polling for precise cut skipping
     setInterval(() => {
         if (this.mainVideoPlayer && !this.mainVideoPlayer.paused) {
@@ -394,12 +412,23 @@ export class CreatorUtilsApp {
         const startWidth = el.offsetWidth;
         const renderRect = getVideoRenderRect();
         
+        let brollRatio = 9 / 16;
+        if (el.style.aspectRatio) {
+            const parts = el.style.aspectRatio.split('/');
+            if (parts.length === 2) brollRatio = parseFloat(parts[1]) / parseFloat(parts[0]);
+        }
+        
         resizeHandle.setPointerCapture(e.pointerId);
         
         const onMove = (ev) => {
           const dx = ev.clientX - startX;
           let newWidth = startWidth + dx;
-          newWidth = Math.max(renderRect.width * 0.1, Math.min(newWidth, parent.offsetWidth - el.offsetLeft));
+          
+          const maxW1 = parent.offsetWidth - el.offsetLeft;
+          const maxW2 = (parent.offsetHeight - el.offsetTop) / brollRatio;
+          const maxW = Math.min(maxW1, maxW2);
+          
+          newWidth = Math.max(renderRect.width * 0.1, Math.min(newWidth, maxW));
           el.style.width = `${(newWidth / parent.offsetWidth) * 100}%`;
         };
         
